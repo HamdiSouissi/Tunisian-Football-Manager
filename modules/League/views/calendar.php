@@ -84,8 +84,8 @@ $statusLabels = ['scheduled'=>'Programmé', 'live'=>'En direct', 'halftime'=>'Mi
                     <div class="next-match-card__clubs"><div><?= club_logo($next['home_slug'], 'club-logo') ?><strong><?= e($next['home_short']) ?></strong></div><span>–</span><div><?= club_logo($next['away_slug'], 'club-logo') ?><strong><?= e($next['away_short']) ?></strong></div></div>
                     <p>Adversaire : <strong><?= e($nextOpponent) ?></strong></p>
                     <div class="next-match-card__links"><a href="<?= $base ?>/tactics">Préparation</a><a href="<?= $base ?>/tactics#tactics-form">Composition</a><a href="#calendar-stats">Statistiques</a></div>
-                    <?php if ($next['status'] === 'scheduled' && $nextCanPlay): ?><form method="post" action="<?= $base ?>/matches/<?= (int)$next['id'] ?>/simulate"><input type="hidden" name="_token" value="<?= e(csrf_token()) ?>"><button class="btn btn--primary btn--block" type="submit">Jouer le match</button></form><?php endif; ?>
-                    <a class="btn <?= $nextCanPlay?'btn--ghost':'btn--primary' ?> btn--block" href="<?= $base ?>/matches/<?= (int)$next['id'] ?>"><?= $next['status']==='scheduled'?($nextCanPlay?'Coup d’envoi en direct':'Ouvrir l’avant-match'):'Reprendre le direct' ?></a>
+                    <?php if ($next['status'] === 'scheduled' && $nextCanPlay): ?><form method="post" action="<?= $base ?>/matches/<?= (int)$next['id'] ?>/start"><input type="hidden" name="_token" value="<?= e(csrf_token()) ?>"><button class="btn btn--primary btn--block" type="submit">Jouer le match</button></form><?php endif; ?>
+                    <a class="btn <?= $nextCanPlay?'btn--ghost':'btn--primary' ?> btn--block" href="<?= $base ?>/matches/<?= (int)$next['id'] ?>"><?= $next['status']==='scheduled'?($nextCanPlay?'Préparer le match':'Ouvrir l’avant-match'):'Reprendre le direct' ?></a>
                 </div>
             </section>
         <?php endif; ?>

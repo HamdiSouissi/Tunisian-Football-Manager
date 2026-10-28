@@ -217,11 +217,20 @@ try {
         ob_end_clean();
         throw $exception;
     }
-    $assert(str_contains($dashboardHtml, 'action="/saves/1/matches/1/simulate"') && str_contains($dashboardHtml, '>Jouer le match</button>'), 'Le dashboard doit afficher le bouton Jouer le match le jour de la rencontre.');
+    $assert(str_contains($dashboardHtml, 'action="/saves/1/matches/1/start"') && !str_contains($dashboardHtml, 'action="/saves/1/matches/1/simulate"') && str_contains($dashboardHtml, '>Jouer le match</button>'), 'Le bouton Jouer le match du dashboard doit ouvrir le direct et non simuler le résultat.');
 
     $matchController = $app->make(Modules\Match\Controllers\MatchController::class);
     $app->config()->set('app.debug', true);
+    $preMatchHtml = $matchController->show(new App\Core\Request('GET', '/saves/1/matches/1', [], [], [], []), '1', '1')->content();
+    $assert(str_contains($preMatchHtml, 'action="/saves/1/matches/1/start"') && str_contains($preMatchHtml, '>Simuler instantanément</button>'), 'L’avant-match doit distinguer le direct de la simulation instantanée.');
+    $leagueController = $app->make(Modules\League\Controllers\LeagueController::class);
+    $preMatchCalendarHtml = $leagueController->calendar(new App\Core\Request('GET', '/saves/1/calendar', ['view'=>'month','date'=>'2026-07-11'], [], [], []))->content();
+    $assert(str_contains($preMatchCalendarHtml, 'action="/saves/1/matches/1/start"'), 'Le bouton Jouer le match du calendrier doit aussi ouvrir le direct.');
     $startResponse = $matchController->start(new App\Core\Request('POST', '/saves/1/matches/1/start', [], [], [], []), '1', '1');
+    $startedFixture = $pdo->query('SELECT status,current_minute,home_score,away_score FROM fixtures WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+    $liveHtml = $matchController->show(new App\Core\Request('GET', '/saves/1/matches/1', [], [], [], []), '1', '1')->content();
+    $lectureEnabled = preg_match('/<button\b(?=[^>]*\bid="match-auto")(?![^>]*\bdisabled\b)[^>]*>/', $liveHtml) === 1;
+    $assert($startResponse->status() === 302 && $startedFixture['status'] === 'live' && (int)$startedFixture['current_minute'] === 0 && $lectureEnabled, 'Jouer le match doit créer un direct à zéro minute avec Lecture actif : ' . $startResponse->content());
     $legacyState = json_decode((string)$pdo->query('SELECT match_state FROM fixtures WHERE id=1')->fetchColumn(), true, 512, JSON_THROW_ON_ERROR);
     unset($legacyState['spatial'], $legacyState['weather'], $legacyState['player_ratings'], $legacyState['player_minutes'], $legacyState['experience_gained']);
     $legacyState['stats'] = ['home'=>['possession'=>0,'shots'=>0], 'away'=>['possession'=>0,'shots'=>0]];
@@ -233,7 +242,7 @@ try {
     $secondStepPayload = json_decode($secondStepResponse->content(), true, 512, JSON_THROW_ON_ERROR);
     $assert($secondStepResponse->status() === 200 && $secondStepPayload['minute'] === 2 && count($secondStepPayload['visual']['frames']) === 10, 'La lecture doit continuer après persistence de l’état hydraté : ' . $secondStepResponse->content());
     $response = $matchController->simulate(new App\Core\Request('POST', '/saves/1/matches/1/simulate', [], [], [], []), '1', '1');
-    $assert($response->status() === 302, 'Le bouton Jouer le match doit rediriger vers le rapport : ' . $response->content());
+    $assert($response->status() === 302, 'La simulation instantanée doit rediriger vers le rapport : ' . $response->content());
     $finished = $pdo->query('SELECT * FROM fixtures WHERE id=1')->fetch(PDO::FETCH_ASSOC);
     $finishedState = json_decode((string)$finished['match_state'], true, 512, JSON_THROW_ON_ERROR);
     $goalCount = (int)$pdo->query("SELECT COUNT(*) FROM match_events WHERE fixture_id=1 AND type IN ('goal','penalty_goal')")->fetchColumn();

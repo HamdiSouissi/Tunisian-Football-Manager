@@ -8,18 +8,18 @@
             $home = (int)$next['home_club_id'] === (int)$club['id'];
             $matchUrl = '/saves/' . (int)$save['id'] . '/matches/' . (int)$next['id'];
             $isLive = in_array($next['status'], ['live', 'halftime'], true);
-            $canSimulate = $next['status'] === 'scheduled' && format_date($next['scheduled_at'], 'Y-m-d') <= $save['current_date'];
+            $canPlay = $next['status'] === 'scheduled' && format_date($next['scheduled_at'], 'Y-m-d') <= $save['current_date'];
             ?>
-            <span class="eyebrow"><?= $canSimulate ? 'Match du jour' : 'Prochain rendez-vous' ?> · J<?= (int)$next['matchday'] ?></span>
+            <span class="eyebrow"><?= $canPlay ? 'Match du jour' : 'Prochain rendez-vous' ?> · J<?= (int)$next['matchday'] ?></span>
             <div class="matchup">
                 <div><span class="club-crest" style="--crest:<?= e($next['home_color']) ?>"><?= club_logo($next['home_slug']) ?></span><span class="matchup__club-name"><?= e($next['home_name']) ?></span></div>
                 <strong>VS</strong>
                 <div><span class="club-crest" style="--crest:<?= e($next['away_color']) ?>"><?= club_logo($next['away_slug']) ?></span><span class="matchup__club-name"><?= e($next['away_name']) ?></span></div>
             </div>
             <p><?= format_date($next['scheduled_at'], 'd/m/Y H:i') ?> · <?= $home ? 'À domicile' : 'À l’extérieur' ?></p>
-            <?php if ($canSimulate): ?>
+            <?php if ($canPlay): ?>
                 <div class="match-day-actions">
-                    <form method="post" action="<?= $matchUrl ?>/simulate">
+                    <form method="post" action="<?= $matchUrl ?>/start">
                         <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                         <button class="btn btn--primary" type="submit">Jouer le match</button>
                     </form>

@@ -57,6 +57,7 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 - dates et compteurs de jours contrôlés après chaque avancement ;
 - refus de simuler un match futur ou celui d’un autre club ;
 - arrêt de **Continuer** sur la date du match du club, blocage d’un nouvel avancement et affichage du bouton **Jouer le match** protégé par CSRF ;
+- **Jouer le match** depuis le dashboard, le calendrier et l’avant-match appelle `/start`, produit un direct `live` à 0 minute avec **Lecture** actif ; la simulation instantanée reste une action secondaire explicite ;
 - redirection du contrôleur vers le rapport après simulation, match terminé après le temps additionnel, score cohérent avec les événements, classement, billetterie et message de résultat ;
 - rendu du rapport Canvas et du calendrier mensuel, notes/homme du match, minutes individuelles et expérience persistée correspondant exactement aux gains du moteur ;
 - reprise d’un ancien direct sans état spatial, météo ni nouvelles statistiques, puis deux appels `/step` consécutifs avec persistence JSON et dix frames par minute ;
