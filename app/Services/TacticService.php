@@ -202,13 +202,16 @@ final class TacticService
             'individual_instructions' => json_encode([], JSON_THROW_ON_ERROR),
         ]);
         if ($existing !== null) {
+            $updateParams = array_merge($params, ['id' => (int) $existing['id']]);
+            // Ces deux clés appartiennent uniquement à l'INSERT : PDO refuse tout binding absent de la requête.
+            unset($updateParams['club_id'], $updateParams['fixture_id']);
             $this->database->execute(
                 'UPDATE tactics SET formation = :formation, mentality = :mentality, playing_style = :playing_style,
                  pressing = :pressing, defensive_line = :defensive_line, tempo = :tempo, width = :width,
                  lineup = :lineup, substitutes = :substitutes, individual_instructions = :individual_instructions,
                  captain_player_id = :captain_player_id, penalty_taker_id = :penalty_taker_id, free_kick_taker_id = :free_kick_taker_id
                  WHERE id = :id AND save_id = :save_id',
-                array_merge($params, ['id' => (int) $existing['id']])
+                $updateParams
             );
             return (int) $existing['id'];
         }

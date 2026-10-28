@@ -2,7 +2,7 @@
 
 Jeu web de gestion d’un club de football tunisien, écrit en **PHP 8.1+ natif**, sans framework ni dépendance obligatoire. L’interface utilise HTML5, CSS3 et JavaScript ES6+ ; aucun build front n’est nécessaire.
 
-> **État de validation :** les tests sans base (noyau, autowiring, routes invitées, CSRF, datasets, moteur de match et calendrier) sont exécutés et passent. L’environnement de développement de cette livraison ne disposait pas de serveur MySQL/MariaDB ni de navigateur : les parcours persistants complets et l’affichage navigateur doivent être vérifiés sur votre installation avant de considérer ces parcours comme validés. Voir [docs/TESTING.md](docs/TESTING.md).
+> **État de validation :** les tests sans MySQL (noyau, autowiring, routes invitées, CSRF, datasets, moteur, calendrier et workflows PDO SQLite en mémoire) sont exécutés et passent. L’environnement de développement de cette livraison ne disposait pas de serveur MySQL/MariaDB ni de navigateur : les parcours persistants complets sur MySQL et l’affichage navigateur doivent être vérifiés sur votre installation avant de les considérer comme validés. Voir [docs/TESTING.md](docs/TESTING.md).
 
 ## Fonctionnalités implémentées
 
@@ -54,6 +54,8 @@ SESSION_SECURE_COOKIE=true
 ```
 
 `SESSION_SECURE_COOKIE=true` suppose HTTPS. Les répertoires `storage/logs` et `storage/sessions` doivent être accessibles en écriture par PHP. `SESSION_SAVE_PATH` permet de définir un autre chemin absolu.
+
+En développement, `APP_DEBUG=true` affiche la classe et le message de l’exception même lorsqu’un contrôleur l’intercepte. La trace complète est écrite dans `storage/logs/app.log`. Remettre impérativement `APP_DEBUG=false` en production : le message utilisateur redevient générique et les détails SQL restent dans le journal.
 
 ### 2. Exécuter les migrations
 
@@ -111,6 +113,10 @@ php tests/smoke.php
 # Moteur minute par minute, rôles, remplacements, calendrier, IA et fenêtres
 php tests/engine.php
 
+# Workflows PDO en mémoire : +1 jour, Continuer, entraînement, finances, tactique et mercato IA
+# Nécessite pdo_sqlite uniquement pour ce test, pas pour exploiter le jeu.
+php tests/sqlite_workflows.php
+
 # Syntaxe JavaScript si Node.js est disponible (non requis par l’application)
 for file in public/assets/js/*.js; do node --check "$file" || exit 1; done
 ```
@@ -152,7 +158,7 @@ modules/
   System/            Diagnostic du noyau
 public/              Seul répertoire exposé au web
 storage/             Journaux, cache et sessions
-tests/                Smoke tests et tests du moteur
+tests/                Smoke tests, moteur et workflows PDO SQLite
 ```
 
 ## Schéma et isolation

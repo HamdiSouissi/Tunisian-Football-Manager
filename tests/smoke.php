@@ -74,6 +74,19 @@ try {
     $assertSame(true, $app->make(App\Contracts\MatchEngineInterface::class) instanceof App\Engine\TacticalMatchEngine, 'Binding du moteur de match incorrect.');
     $assertSame(true, $app->make(App\Contracts\AIManagerInterface::class) instanceof App\Services\ClubAIManager, 'Binding de l’IA incorrect.');
 
+    // Le mode debug doit conserver le détail technique même lorsqu'un contrôleur intercepte l'exception.
+    $controllerProbe = new class($app) extends App\Controllers\Controller {
+        public function exceptionText(Throwable $exception): string { return $this->exceptionMessage($exception); }
+    };
+    $previousDebug = (bool)$app->config()->get('app.debug', false);
+    $app->config()->set('app.debug', true);
+    $debugMessage = $controllerProbe->exceptionText(new PDOException('SQLSTATE[HY093] paramètre de test'));
+    $assertSame(true, str_contains($debugMessage, 'PDOException') && str_contains($debugMessage, 'HY093'), 'Le debug ne doit pas masquer l’exception interceptée.');
+    $app->config()->set('app.debug', false);
+    $productionMessage = $controllerProbe->exceptionText(new PDOException('SQLSTATE[HY093] paramètre de test'));
+    $assertSame('Une erreur technique est survenue. Veuillez réessayer.', $productionMessage, 'La production ne doit pas exposer le détail SQL.');
+    $app->config()->set('app.debug', $previousDebug);
+
     // Chaque migration est découpée sans casser les littéraux (dont les couleurs #fff).
     $migrator = new Migrator(new Database([]), '', []);
     $splitter = new ReflectionMethod(Migrator::class, 'splitStatements');

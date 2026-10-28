@@ -10,9 +10,10 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 
 | Vérification | Résultat |
 |---|---|
-| Analyse syntaxique PHP avec `TOKEN_PARSE` | **128 fichiers, 0 erreur** |
+| Analyse syntaxique PHP avec `TOKEN_PARSE` | **129 fichiers, 0 erreur** |
 | `tests/smoke.php` | **Smoke tests : OK** |
 | `tests/engine.php` | **12 exécutions consécutives : Tests moteur, calendrier et IA : OK** |
+| `tests/sqlite_workflows.php` | **5 exécutions consécutives : +1 jour, Continuer, entraînement, finances, tactique et mercato IA OK** |
 | Assets des clubs | **32/32 slugs couverts, 32 PNG valides en 256 × 256** |
 | Portraits générés | **Déterminisme, variante et échappement testés ; six variantes converties en PNG et inspectées** |
 | `node --check` sur les cinq fichiers JS | **OK** |
@@ -29,6 +30,7 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - régression MySQL : `` `current_date` `` reste échappé dans les quatre requêtes de création/lecture/avancement/rollover ;
 - avancement d’une date avec changement de mois et année bissextile, sans l’appel inexistant `DateTimeImmutable::addDay()` ;
 - détection des paramètres nommés dupliqués dans les littéraux SQL, incompatibles avec les requêtes PDO natives ;
+- détail `PDOException` conservé avec `APP_DEBUG=true`, mais masqué avec `APP_DEBUG=false` ;
 - rendu de la vue Finances sans aucune transaction puis avec des flux mensuels positifs et négatifs ;
 - portraits SVG déterministes, distincts selon le joueur, accessibles et échappés face aux données HTML invalides ;
 - rendu complet de la fiche joueur avec portrait, contrat et statistiques de carrière ;
@@ -38,6 +40,18 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - blocage CSRF d’un POST de connexion avant toute connexion PDO ;
 - catalogue de 2 ligues, 32 clubs et 12 joueurs libres ;
 - correspondance entre chaque slug et son blason local, URL des images et fallback pour slug invalide/asset absent.
+
+### Couverture des workflows PDO SQLite
+
+Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `ATTR_EMULATE_PREPARES=false` et un schéma minimal limité aux parcours testés. Il ne valide ni les migrations ni la syntaxe propre à MySQL.
+
+- création d’une tactique par `INSERT`, puis second enregistrement par `UPDATE` avec les bindings réellement présents dans la requête ;
+- reconstruction automatique du onze lorsqu’un titulaire est blessé, chemin également utilisé par la simulation ;
+- **+1 jour** du 1er au 2 juillet avec mise à jour transactionnelle de la sauvegarde ;
+- **Continuer** sur sept jours, avec application d’un lundi d’entraînement ;
+- onze lignes de rapport hebdomadaire et écritures de salaires/sponsors ;
+- transfert IA avec contrat et deux écritures financières, plus une offre destinée au club dirigé pendant un avancement quotidien ;
+- dates et compteurs de jours contrôlés après chaque avancement.
 
 ### Couverture du moteur et du calendrier
 
@@ -57,7 +71,8 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 
 - **Finances sur une nouvelle sauvegarde** : `max()` recevait un entier unique lorsque le tableau mensuel était vide ; le calcul utilise maintenant toujours un tableau de valeurs.
 - **+1 jour / Continuer** : l’appel inexistant `DateTimeImmutable::addDay()` est remplacé par `modify('+1 day')`, et la détection d’un direct utilise deux paramètres PDO distincts pour le club domicile/extérieur.
-- **Diagnostic ultérieur** : les exceptions techniques interceptées par les contrôleurs sont maintenant journalisées dans `storage/logs/app.log`, sans exposer les détails sensibles à l’utilisateur.
+- **Enregistrement tactique / HY093** : `club_id` et `fixture_id` étaient liés à un `UPDATE` qui ne déclarait pas ces paramètres ; ils sont retirés du seul tableau de bindings de cet `UPDATE`. Le même chemin est couvert lors d’une reconstruction automatique du onze.
+- **Diagnostic ultérieur** : les exceptions techniques interceptées par les contrôleurs sont journalisées dans `storage/logs/app.log`. Leur classe et leur message sont aussi visibles avec `APP_DEBUG=true`, sans exposer ces détails en production.
 
 ## Non exécutés dans cet environnement
 
@@ -67,12 +82,12 @@ Aucun serveur MySQL/MariaDB ou navigateur n’était disponible. En conséquence
 - inscription/connexion avec écriture PDO ;
 - génération transactionnelle complète d’une sauvegarde ;
 - affichage authentifié de toutes les pages avec données réelles ;
-- avancement journalier/hebdomadaire, verrous et reprises SQL ;
+- avancement journalier/hebdomadaire sur MySQL, verrous `FOR UPDATE` et reprises SQL ;
 - direct persistant avec requêtes fetch et rechargement ;
 - application SQL des entraînements, blessures, transferts, finances et fin de saison ;
 - affichage responsive et interactions glisser-déposer dans un navigateur.
 
-Le runtime WebAssembly sert uniquement aux tests sans base ; il n’est pas un serveur d’application recommandé et n’est pas inclus dans le dépôt.
+Le runtime WebAssembly sert uniquement aux tests sans MySQL ; il n’est pas un serveur d’application recommandé et n’est pas inclus dans le dépôt. SQLite est réservé aux workflows PDO décrits ci-dessus et n’est pas un driver applicatif supporté.
 
 ## Matrice de validation sur une installation réelle
 

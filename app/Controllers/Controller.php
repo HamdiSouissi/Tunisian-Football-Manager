@@ -47,6 +47,9 @@ abstract class Controller
             return $exception->getMessage();
         }
         $this->app->make(ErrorHandler::class)->report($exception);
+        if ((bool)$this->app->config()->get('app.debug', false)) {
+            return $exception::class . ' : ' . $exception->getMessage();
+        }
         return 'Une erreur technique est survenue. Veuillez réessayer.';
     }
 }
