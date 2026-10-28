@@ -11,12 +11,17 @@ use App\Services\PlayerFactory;
 use App\Services\TacticService;
 use App\Session\Session;
 
-/** SQLite ignore le verrou MySQL dans ce test ; les autres requêtes restent préparées par PDO. */
+/** Adaptateur de test : SQLite ignore FOR UPDATE et traduit la forme MySQL du classement. */
 final class WorkflowSQLitePDO extends PDO
 {
     public function prepare(string $query, array $options = []): PDOStatement|false
     {
         $query = (string)preg_replace('/\s+FOR\s+UPDATE\b/i', '', $query);
+        $query = str_replace(
+            ['RIGHT(CONCAT(form, :home_form), 5)', 'RIGHT(CONCAT(form, :away_form), 5)'],
+            ['SUBSTR(form || :home_form, -5)', 'SUBSTR(form || :away_form, -5)'],
+            $query
+        );
         return parent::prepare($query, $options);
     }
 }
@@ -50,7 +55,9 @@ try {
         'CREATE TABLE leagues (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, name TEXT, short_name TEXT, slug TEXT, level INTEGER, team_count INTEGER)',
         'CREATE TABLE clubs (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, league_id INTEGER, name TEXT, short_name TEXT, slug TEXT, city TEXT, stadium_name TEXT, stadium_capacity INTEGER, primary_color TEXT, secondary_color TEXT, reputation INTEGER, balance REAL, transfer_budget REAL, wage_budget REAL, board_confidence INTEGER)',
         'CREATE TABLE seasons (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, name TEXT, starts_on TEXT, ends_on TEXT, status TEXT)',
-        'CREATE TABLE fixtures (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, season_id INTEGER, scheduled_at TEXT, status TEXT, home_club_id INTEGER, away_club_id INTEGER)',
+        'CREATE TABLE fixtures (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, season_id INTEGER, league_id INTEGER, round_number INTEGER DEFAULT 1, leg TEXT DEFAULT \'first\', matchday INTEGER DEFAULT 1, scheduled_at TEXT, status TEXT DEFAULT \'scheduled\', home_club_id INTEGER, away_club_id INTEGER, current_minute INTEGER DEFAULT 0, home_score INTEGER, away_score INTEGER, attendance INTEGER, statistics TEXT, match_state TEXT, started_at TEXT, finished_at TEXT)',
+        'CREATE TABLE match_events (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, fixture_id INTEGER NOT NULL, club_id INTEGER, player_id INTEGER, related_player_id INTEGER, minute INTEGER, added_time INTEGER DEFAULT 0, type TEXT, description TEXT, data TEXT)',
+        'CREATE TABLE standings (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, season_id INTEGER NOT NULL, league_id INTEGER NOT NULL, club_id INTEGER NOT NULL, position INTEGER DEFAULT 0, played INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, draws INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, goals_for INTEGER DEFAULT 0, goals_against INTEGER DEFAULT 0, goal_difference INTEGER DEFAULT 0, points INTEGER DEFAULT 0, form TEXT DEFAULT \'\')',
         'CREATE TABLE players (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, club_id INTEGER, first_name TEXT, last_name TEXT, birth_date TEXT, nationality TEXT, primary_position TEXT, secondary_positions TEXT, preferred_foot TEXT, height_cm INTEGER, weight_kg INTEGER, market_value REAL, overall_rating INTEGER, potential INTEGER, form INTEGER, morale INTEGER, fatigue INTEGER, injury_type TEXT, injury_until TEXT, is_retired INTEGER DEFAULT 0)',
         'CREATE TABLE contracts (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, player_id INTEGER, club_id INTEGER, starts_on TEXT, ends_on TEXT, salary REAL, squad_role TEXT, release_clause REAL, signing_bonus REAL, status TEXT DEFAULT \'active\')',
         'CREATE TABLE staff (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, club_id INTEGER, quality INTEGER, wage REAL)',
@@ -162,8 +169,90 @@ try {
     $assert((int)$pdo->query("SELECT COUNT(*) FROM transfer_offers WHERE status='pending'")->fetchColumn() >= 1, 'L’offre IA destinée au joueur n’a pas été créée.');
     $assert((int)$pdo->query("SELECT COUNT(*) FROM finances WHERE category IN ('transfer_purchase','transfer_sale')")->fetchColumn() === 2, 'Les écritures financières du transfert IA sont incomplètes.');
 
+    // Le jour du match, la boucle s'arrête et seul le bouton déclenche la rencontre du club dirigé.
+    $app->config()->set('game.transfers.ai_daily_transfer_chance', 0.0);
+    $app->config()->set('game.transfers.ai_daily_user_offer_chance', 0.0);
+    foreach (TacticService::FORMATIONS['4-3-3'] as $index => $position) {
+        $id = 100 + $index;
+        $playerInsert->execute([$id, 2, 'Adverse', (string)$id, '2000-01-01', 'Tunisia', $position, '[]', 'right', 180, 75, 100000, 65, 75, 60, 70, 0, null, null]);
+        $attributeInsert->execute([$id]);
+        $contractInsert->execute([$id, 2]);
+    }
+    $pdo->exec('INSERT INTO standings (save_id,season_id,league_id,club_id) VALUES (1,1,1,1),(1,1,1,2)');
+    $pdo->exec("INSERT INTO fixtures (id,save_id,season_id,league_id,matchday,scheduled_at,home_club_id,away_club_id) VALUES (1,1,1,1,1,'2026-07-11 15:00:00',1,2)");
+    $matchService = $app->make(App\Services\MatchService::class);
+    $futureRejected = false;
+    try {
+        $matchService->simulateForUser($context, 1);
+    } catch (RuntimeException $exception) {
+        $futureRejected = str_contains($exception->getMessage(), 'pas encore jouable');
+    }
+    $assert($futureRejected && $pdo->query('SELECT status FROM fixtures WHERE id=1')->fetchColumn() === 'scheduled', 'Un match futur ne doit pas être simulable.');
+
+    $matchDay = $gameLoop->advance($context, 7);
+    $assert($matchDay['days'] === 1 && $matchDay['awaiting_match'] === 1 && $context->save()['current_date'] === '2026-07-11', 'Continuer doit s’arrêter le jour du match du club.');
+    $assert($pdo->query('SELECT status FROM fixtures WHERE id=1')->fetchColumn() === 'scheduled', 'Le match du club ne doit plus être simulé sans action du manager.');
+    $advanceBlocked = false;
+    try {
+        $gameLoop->advance($context, 1);
+    } catch (App\Security\ValidationException $exception) {
+        $advanceBlocked = true;
+    }
+    $assert($advanceBlocked && $context->save()['current_date'] === '2026-07-11', 'Continuer doit être bloqué tant que le match du jour est en attente.');
+
+    $save = $context->save();
+    $club = $context->club();
+    $next = $matchService->fixture($context->saveId(), 1);
+    $standing = null;
+    $objective = null;
+    $topPlayers = [];
+    $recent = [];
+    $messages = [];
+    ob_start();
+    try {
+        include base_path('modules/Game/views/dashboard.php');
+        $dashboardHtml = (string)ob_get_clean();
+    } catch (Throwable $exception) {
+        ob_end_clean();
+        throw $exception;
+    }
+    $assert(str_contains($dashboardHtml, 'action="/saves/1/matches/1/simulate"') && str_contains($dashboardHtml, '>Jouer le match</button>'), 'Le dashboard doit afficher le bouton Jouer le match le jour de la rencontre.');
+
+    $matchController = $app->make(Modules\Match\Controllers\MatchController::class);
+    $app->config()->set('app.debug', true);
+    $response = $matchController->simulate(new App\Core\Request('POST', '/saves/1/matches/1/simulate', [], [], [], []), '1', '1');
+    $assert($response->status() === 302, 'Le bouton Jouer le match doit rediriger vers le rapport : ' . $response->content());
+    $finished = $pdo->query('SELECT * FROM fixtures WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+    $finishedState = json_decode((string)$finished['match_state'], true, 512, JSON_THROW_ON_ERROR);
+    $goalCount = (int)$pdo->query("SELECT COUNT(*) FROM match_events WHERE fixture_id=1 AND type IN ('goal','penalty_goal')")->fetchColumn();
+    $played = array_map('intval', $pdo->query('SELECT played FROM standings WHERE club_id IN (1,2) ORDER BY club_id')->fetchAll(PDO::FETCH_COLUMN));
+    $assert($finished['status'] === 'finished' && (int)$finished['current_minute'] === 90 && $finishedState['status'] === 'finished', 'La simulation doit produire un match terminé après 90 minutes.');
+    $assert($goalCount === (int)$finished['home_score'] + (int)$finished['away_score'], 'Le score simulé doit correspondre aux événements de but.');
+    $assert($played === [1, 1], 'Les deux clubs doivent avoir exactement un match de plus au classement.');
+    $assert((int)$finished['attendance'] > 0 && (int)$pdo->query("SELECT COUNT(*) FROM finances WHERE category='ticketing' AND reference_id=1")->fetchColumn() === 1, 'La billetterie du match simulé est absente.');
+    $assert((int)$pdo->query("SELECT COUNT(*) FROM messages WHERE category='result' AND action_url='/saves/1/matches/1'")->fetchColumn() === 1, 'Le message de résultat est absent.');
+
+    $eventCount = (int)$pdo->query('SELECT COUNT(*) FROM match_events WHERE fixture_id=1')->fetchColumn();
+    $matchService->simulateForUser($context, 1);
+    $assert((int)$pdo->query('SELECT COUNT(*) FROM match_events WHERE fixture_id=1')->fetchColumn() === $eventCount, 'Une seconde simulation ne doit pas dupliquer les événements.');
+    $assert(array_map('intval', $pdo->query('SELECT played FROM standings WHERE club_id IN (1,2) ORDER BY club_id')->fetchAll(PDO::FETCH_COLUMN)) === [1, 1], 'Une seconde simulation ne doit pas finaliser deux fois le classement.');
+
+    $pdo->exec("INSERT INTO clubs (id,save_id,league_id,name) VALUES (3,1,1,'Club Tiers')");
+    $pdo->exec("INSERT INTO fixtures (id,save_id,season_id,league_id,matchday,scheduled_at,home_club_id,away_club_id) VALUES (3,1,1,1,1,'2026-07-11 15:00:00',2,3)");
+    $foreignRejected = false;
+    try {
+        $matchService->simulateForUser($context, 3);
+    } catch (RuntimeException $exception) {
+        $foreignRejected = str_contains($exception->getMessage(), 'ne concerne pas votre club');
+    }
+    $assert($foreignRejected, 'Le bouton ne doit pas permettre de simuler le match d’un autre club.');
+    $pdo->exec('DELETE FROM fixtures WHERE id=3');
+
+    $afterMatch = $gameLoop->advance($context, 1);
+    $assert($afterMatch['days'] === 1 && $context->save()['current_date'] === '2026-07-12', 'Le calendrier doit pouvoir reprendre après la simulation.');
+
     $session->invalidate();
-    echo "Workflows SQLite PDO (+1 jour, Continuer, tactique, mercato IA) : OK\n";
+    echo "Workflows SQLite PDO (+1 jour, Continuer, tactique, mercato IA, jour de match) : OK\n";
 } catch (Throwable $exception) {
     echo 'ÉCHEC : ' . $exception::class . ' : ' . $exception->getMessage() . "\n" . $exception->getTraceAsString() . "\n";
     exit(1);

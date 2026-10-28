@@ -13,7 +13,7 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 | Analyse syntaxique PHP avec `TOKEN_PARSE` | **129 fichiers, 0 erreur** |
 | `tests/smoke.php` | **Smoke tests : OK** |
 | `tests/engine.php` | **12 exécutions consécutives : Tests moteur, calendrier et IA : OK** |
-| `tests/sqlite_workflows.php` | **5 exécutions consécutives : +1 jour, Continuer, entraînement, finances, tactique et mercato IA OK** |
+| `tests/sqlite_workflows.php` | **5 exécutions consécutives : +1 jour, Continuer, tactique, mercato IA et simulation au jour du match OK** |
 | Assets des clubs | **32/32 slugs couverts, 32 PNG valides en 256 × 256** |
 | Portraits générés | **Déterminisme, variante et échappement testés ; six variantes converties en PNG et inspectées** |
 | `node --check` sur les cinq fichiers JS | **OK** |
@@ -38,7 +38,7 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - CSRF par en-tête et rejet d’un jeton invalide ;
 - route `/health`, contraintes de paramètres et 404 ;
 - pages invitées `/login` et `/register`, redirections de `/` et `/saves` ;
-- blocage CSRF d’un POST de connexion avant toute connexion PDO ;
+- blocage CSRF d’un POST de connexion et d’un POST de simulation de match avant toute connexion PDO ;
 - catalogue de 2 ligues, 32 clubs et 12 joueurs libres ;
 - correspondance entre chaque slug et son blason local, URL des images et fallback pour slug invalide/asset absent.
 
@@ -53,7 +53,11 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 - **Continuer** sur sept jours, avec application d’un lundi d’entraînement ;
 - onze lignes de rapport hebdomadaire et écritures de salaires/sponsors ;
 - transfert IA avec contrat et deux écritures financières, plus une offre destinée au club dirigé pendant un avancement quotidien ;
-- dates et compteurs de jours contrôlés après chaque avancement.
+- dates et compteurs de jours contrôlés après chaque avancement ;
+- refus de simuler un match futur ou celui d’un autre club ;
+- arrêt de **Continuer** sur la date du match du club, blocage d’un nouvel avancement et affichage du bouton **Jouer le match** protégé par CSRF ;
+- redirection du contrôleur vers le rapport après simulation, match terminé à 90 minutes, score cohérent avec les événements, classement, billetterie et message de résultat ;
+- absence de duplication des événements et de double comptabilisation au classement lors d’un second appel, puis reprise de l’avancement le lendemain.
 
 ### Couverture du moteur et du calendrier
 
@@ -73,6 +77,7 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 
 - **Finances sur une nouvelle sauvegarde** : `max()` recevait un entier unique lorsque le tableau mensuel était vide ; le calcul utilise maintenant toujours un tableau de valeurs.
 - **+1 jour / Continuer** : l’appel inexistant `DateTimeImmutable::addDay()` est remplacé par `modify('+1 day')`, et la détection d’un direct utilise deux paramètres PDO distincts pour le club domicile/extérieur.
+- **Jour de match** : la boucle simulait auparavant la rencontre du club dirigé avant que le joueur puisse agir. Elle laisse maintenant ce match en attente, s’arrête sur sa date et exige une simulation explicite ou un direct avant de reprendre.
 - **Récupération / SQLSTATE 22003** : `fatigue` est un `TINYINT UNSIGNED`. MySQL évaluait `fatigue - 7` avant `GREATEST(0, …)`, ce qui produisait une valeur intermédiaire négative pour une fatigue inférieure à 7. Le cast en `SIGNED` intervient maintenant avant la soustraction, puis le résultat est borné à zéro.
 - **Enregistrement tactique / HY093** : `club_id` et `fixture_id` étaient liés à un `UPDATE` qui ne déclarait pas ces paramètres ; ils sont retirés du seul tableau de bindings de cet `UPDATE`. Le même chemin est couvert lors d’une reconstruction automatique du onze.
 - **Diagnostic ultérieur** : les exceptions techniques interceptées par les contrôleurs sont journalisées dans `storage/logs/app.log`. Leur classe et leur message sont aussi visibles avec `APP_DEBUG=true`, sans exposer ces détails en production.

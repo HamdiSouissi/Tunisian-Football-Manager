@@ -149,31 +149,47 @@ final class MatchService
         });
     }
 
+    /** Simulation lancée explicitement par le manager pour un match de son club. */
+    public function simulateForUser(GameContext $context, int $fixtureId): array
+    {
+        return $this->database->transaction(function () use ($context, $fixtureId): array {
+            $fixture = $this->lockedFixture($context->saveId(), $fixtureId);
+            $this->assertUserClub($context, $fixture);
+            $this->assertMatchDate($context, $fixture);
+            return $this->simulateFixture($context->saveId(), $fixture, $context);
+        });
+    }
+
     public function simulate(int $saveId, int $fixtureId, ?GameContext $context = null): array
     {
         return $this->database->transaction(function () use ($saveId, $fixtureId, $context): array {
             $fixture = $this->lockedFixture($saveId, $fixtureId);
-            $state = $this->decodeState($fixture);
-            if ($fixture['status'] === 'finished') {
-                if ($state !== null) {
-                    return $state;
-                }
-                throw new RuntimeException('État du match terminé introuvable.');
-            }
-            if ($state === null) {
-                $state = $this->initializeState($fixture, $context);
-            }
-            if ($state['status'] === 'halftime') {
-                $state['status'] = 'live';
-            }
-            while ($state['status'] !== 'finished') {
-                $state = $this->engine->advance($state, true);
-                $this->insertEvents($saveId, $fixture, $state['new_events']);
-            }
-            $this->persist($saveId, $fixture, $state);
-            $this->finalize($saveId, $fixture, $state, $context);
-            return $state;
+            return $this->simulateFixture($saveId, $fixture, $context);
         });
+    }
+
+    private function simulateFixture(int $saveId, array $fixture, ?GameContext $context): array
+    {
+        $state = $this->decodeState($fixture);
+        if ($fixture['status'] === 'finished') {
+            if ($state !== null) {
+                return $state;
+            }
+            throw new RuntimeException('État du match terminé introuvable.');
+        }
+        if ($state === null) {
+            $state = $this->initializeState($fixture, $context);
+        }
+        if ($state['status'] === 'halftime') {
+            $state['status'] = 'live';
+        }
+        while ($state['status'] !== 'finished') {
+            $state = $this->engine->advance($state, true);
+            $this->insertEvents($saveId, $fixture, $state['new_events']);
+        }
+        $this->persist($saveId, $fixture, $state);
+        $this->finalize($saveId, $fixture, $state, $context);
+        return $state;
     }
 
     public function events(int $saveId, int $fixtureId): array

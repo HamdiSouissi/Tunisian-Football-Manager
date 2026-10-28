@@ -1,7 +1,38 @@
 <?php $objectiveLabels = ['avoid_relegation'=>'Maintien','top_half'=>'Première moitié de tableau','top_three'=>'Top 3','title'=>'Titre de champion','promotion'=>'Promotion en Ligue 1']; ?>
 <div class="page-heading"><div><span class="eyebrow">Centre de commandement</span><h1>Bonjour, <?= e($save['manager_name']) ?></h1><p><?= e($club['name']) ?> · <?= e($standing['league_name'] ?? '') ?> · <?= e(ucfirst($save['difficulty'])) ?></p></div></div>
 <div class="dashboard-grid">
-<section class="panel panel--hero"><div class="panel__body"><?php if ($next): $home = (int)$next['home_club_id'] === (int)$club['id']; ?><span class="eyebrow">Prochain rendez-vous · J<?= (int)$next['matchday'] ?></span><div class="matchup"><div><span class="club-crest" style="--crest:<?= e($next['home_color']) ?>"><?= club_logo($next['home_slug']) ?></span><span class="matchup__club-name"><?= e($next['home_name']) ?></span></div><strong>VS</strong><div><span class="club-crest" style="--crest:<?= e($next['away_color']) ?>"><?= club_logo($next['away_slug']) ?></span><span class="matchup__club-name"><?= e($next['away_name']) ?></span></div></div><p><?= format_date($next['scheduled_at'], 'd/m/Y H:i') ?> · <?= $home ? 'À domicile' : 'À l’extérieur' ?></p><?php if (in_array($next['status'], ['live','halftime'], true) || format_date($next['scheduled_at'],'Y-m-d') === $save['current_date']): ?><a class="btn btn--primary" href="/saves/<?= (int)$save['id'] ?>/matches/<?= (int)$next['id'] ?>">Entrer dans le match</a><?php endif; ?><?php else: ?><h2>Saison terminée</h2><p>Continuez pour générer la nouvelle saison.</p><?php endif; ?></div></section>
+<section class="panel panel--hero">
+    <div class="panel__body">
+        <?php if ($next): ?>
+            <?php
+            $home = (int)$next['home_club_id'] === (int)$club['id'];
+            $matchUrl = '/saves/' . (int)$save['id'] . '/matches/' . (int)$next['id'];
+            $isLive = in_array($next['status'], ['live', 'halftime'], true);
+            $canSimulate = $next['status'] === 'scheduled' && format_date($next['scheduled_at'], 'Y-m-d') <= $save['current_date'];
+            ?>
+            <span class="eyebrow"><?= $canSimulate ? 'Match du jour' : 'Prochain rendez-vous' ?> · J<?= (int)$next['matchday'] ?></span>
+            <div class="matchup">
+                <div><span class="club-crest" style="--crest:<?= e($next['home_color']) ?>"><?= club_logo($next['home_slug']) ?></span><span class="matchup__club-name"><?= e($next['home_name']) ?></span></div>
+                <strong>VS</strong>
+                <div><span class="club-crest" style="--crest:<?= e($next['away_color']) ?>"><?= club_logo($next['away_slug']) ?></span><span class="matchup__club-name"><?= e($next['away_name']) ?></span></div>
+            </div>
+            <p><?= format_date($next['scheduled_at'], 'd/m/Y H:i') ?> · <?= $home ? 'À domicile' : 'À l’extérieur' ?></p>
+            <?php if ($canSimulate): ?>
+                <div class="match-day-actions">
+                    <form method="post" action="<?= $matchUrl ?>/simulate">
+                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <button class="btn btn--primary" type="submit">Jouer le match</button>
+                    </form>
+                    <a class="btn btn--ghost" href="<?= $matchUrl ?>">Préparer le match</a>
+                </div>
+            <?php elseif ($isLive): ?>
+                <a class="btn btn--primary" href="<?= $matchUrl ?>">Reprendre le direct</a>
+            <?php endif; ?>
+        <?php else: ?>
+            <h2>Saison terminée</h2><p>Continuez pour générer la nouvelle saison.</p>
+        <?php endif; ?>
+    </div>
+</section>
 <section class="panel metric-panel"><div class="panel__body"><span class="eyebrow">Situation sportive</span><div class="big-metric"><?= (int)($standing['position'] ?? 0) ?><sup>er</sup></div><p><?= (int)($standing['points'] ?? 0) ?> points · <?= (int)($standing['played'] ?? 0) ?> matchs</p><div class="form-line"><?= e($standing['form'] ?? '') ?></div><hr><span class="eyebrow">Objectif du président</span><h3><?= e($objectiveLabels[$objective['objective'] ?? ''] ?? 'À définir') ?></h3><label class="progress-label">Confiance de la direction <b><?= (int)$club['board_confidence'] ?>%</b></label><div class="progress"><span style="width:<?= max(0,min(100,(int)$club['board_confidence'])) ?>%"></span></div></div></section>
 <section class="panel metric-panel"><div class="panel__body"><span class="eyebrow">Santé financière</span><div class="big-metric big-metric--money"><?= format_money($club['balance']) ?></div><dl class="facts"><div><dt>Transferts</dt><dd><?= format_money($club['transfer_budget']) ?></dd></div><div><dt>Masse salariale / sem.</dt><dd><?= format_money($club['wage_budget']) ?></dd></div></dl><a class="text-link" href="/saves/<?= (int)$save['id'] ?>/finances">Voir le détail →</a></div></section>
 <section class="panel"><div class="panel__header"><h2>Joueurs en vue</h2><a href="/saves/<?= (int)$save['id'] ?>/squad">Effectif</a></div><div class="panel__body table-wrap"><table class="table table--compact"><thead><tr><th>Joueur</th><th>Poste</th><th>OVR</th><th>Forme</th></tr></thead><tbody><?php foreach ($topPlayers as $player): ?><tr><td><a class="player-link" href="/saves/<?= (int)$save['id'] ?>/players/<?= (int)$player['id'] ?>"><?= player_portrait($player, 'sm') ?><span><?= e($player['first_name'].' '.$player['last_name']) ?></span></a></td><td><span class="position-badge"><?= e($player['primary_position']) ?></span></td><td><span class="rating rating--<?= (int)$player['overall_rating'] >= 75 ? 'high' : 'mid' ?>"><?= (int)$player['overall_rating'] ?></span></td><td><?= (int)$player['form'] ?>%</td></tr><?php endforeach; ?></tbody></table></div></section>

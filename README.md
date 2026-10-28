@@ -10,11 +10,11 @@ Jeu web de gestion d’un club de football tunisien, écrit en **PHP 8.1+ natif*
 - **Monde tunisien** : deux divisions de 16 clubs, 22 joueurs par club, 12 joueurs libres, contrats, staff, tactiques, objectifs et 480 rencontres aller-retour.
 - **Identité visuelle locale** : 32 blasons PNG en 256 × 256, dont 31 importés depuis leurs sources Internet et un monogramme de repli documenté ; aucun hotlink pendant le jeu. Voir [les sources des assets](public/assets/img/clubs/SOURCES.md).
 - **Interface plein écran** : coquille verrouillée à `100vw` / `100dvh`, sans défilement du document ; le contenu principal, la navigation et les listes denses possèdent leurs propres zones de défilement.
-- **Centre de commandement** : prochain match, classement, objectif et confiance de la direction, finances, joueurs en vue, résultats et messagerie.
+- **Centre de commandement** : prochain match, bouton **Jouer le match** le jour de la rencontre, classement, objectif et confiance de la direction, finances, joueurs en vue, résultats et messagerie.
 - **Effectif** : portraits SVG générés localement et stables pour chaque joueur, tableau dense triable/filtrable, forme, moral, fatigue, blessures, valeur, fiche détaillée, statistiques de carrière et radar d’attributs sans bibliothèque externe.
 - **Tactique** : six formations, onze titulaires, sept remplaçants, glisser-déposer et sélection au clic, mentalité, style, pressing, ligne, tempo, largeur, rôles et consignes individuelles interprétés par le moteur.
-- **Matchs** : moteur minute par minute, occasions, buts, passes décisives, cartons, blessures, possession, fatigue, avantage domicile, direct interactif, lecture automatique, mi-temps, cinq remplacements et banc du coach sans rechargement permettant de changer réellement de formation et d’ajuster toutes les consignes.
-- **Championnat** : calendrier, résultats, statistiques, classement recalculé, forme et boucle d’avancement d’un à sept jours.
+- **Matchs** : simulation immédiate sur demande ou moteur minute par minute, occasions, buts, passes décisives, cartons, blessures, possession, fatigue, avantage domicile, direct interactif, lecture automatique, mi-temps, cinq remplacements et banc du coach sans rechargement permettant de changer réellement de formation et d’ajuster toutes les consignes.
+- **Championnat** : calendrier, résultats, statistiques, classement recalculé, forme et boucle d’avancement d’un à sept jours qui s’arrête le jour d’un match du club dirigé.
 - **Entraînement** : programme collectif hebdomadaire, suivi individuel, intensité, qualité du staff, progression selon âge/potentiel, fatigue, blessures et rapports persistants.
 - **Mercato** : recherche multicritère, achats, ventes, joueurs libres, négociations salariales, offres, contre-offres, prêts et retours, fenêtres de transferts, shortlist, historique et actions des clubs IA.
 - **Finances et direction** : billetterie, salaires joueurs/staff, sponsors, droits TV, opérations de transfert, primes à la signature, budget, livre comptable, objectifs et licenciement lorsque la confiance tombe à zéro.
@@ -92,13 +92,13 @@ Ces compteurs sont globaux à la base : avec plusieurs sauvegardes, filtrer avec
 ## Jouer
 
 1. **Effectif / Tactique** : vérifier le onze, les remplaçants et les consignes, puis enregistrer.
-2. **Continuer** : avancer d’un jour ou de sept jours. Les matchs du jour, l’entraînement du lundi, la récupération, les finances et les actions IA sont traités dans la boucle.
-3. **Match interactif** : depuis le dashboard ou le calendrier, ouvrir le match de votre club à sa date. Il peut être joué minute par minute au lieu d’être simulé automatiquement. Pendant le direct, le banc du coach permet les remplacements et le changement de formation ; toute intervention met la lecture automatique en pause et actualise le match sans rechargement.
+2. **Continuer** : avancer d’un jour ou de sept jours. Les rencontres des clubs IA, l’entraînement du lundi, la récupération, les finances et les actions IA sont traités dans la boucle. À la date d’un match de votre club, l’avancement s’arrête sur cette journée.
+3. **Jouer le match** : sur le dashboard, cliquer sur **Jouer le match** pour lancer immédiatement la simulation et ouvrir le rapport. Le bouton **Préparer le match** permet de vérifier la tactique ou de choisir le coup d’envoi en direct. Pendant le direct, le banc du coach permet les remplacements et le changement de formation ; toute intervention met la lecture automatique en pause et actualise le match sans rechargement.
 4. **Entraînement** : modifier le programme avant lundi et consulter le rapport après application.
 5. **Mercato** : recruter pendant les fenêtres du 15 juin au 31 août et du 1er au 31 janvier.
 6. **Fin de saison** : après le 31 mai, continuer pour clôturer la saison et générer la suivante.
 
-Un match commencé en direct doit être terminé avant de poursuivre l’avancement du temps. Une carrière archivée ou terminée reste consultable mais ne peut plus avancer.
+Un match du jour doit être simulé ou joué en direct avant de poursuivre l’avancement du temps. Un match commencé en direct doit être terminé. Une carrière archivée ou terminée reste consultable mais ne peut plus avancer.
 
 ## Tests et vérifications
 
@@ -113,7 +113,7 @@ php tests/smoke.php
 # Moteur minute par minute, rôles, remplacements, calendrier, IA et fenêtres
 php tests/engine.php
 
-# Workflows PDO en mémoire : +1 jour, Continuer, entraînement, finances, tactique et mercato IA
+# Workflows PDO en mémoire : +1 jour, Continuer, tactique, mercato IA et simulation au jour du match
 # Nécessite pdo_sqlite uniquement pour ce test, pas pour exploiter le jeu.
 php tests/sqlite_workflows.php
 

@@ -42,7 +42,11 @@ final class DashboardController extends GameController
         $days = min(7, max(1, (int) $request->input('days', 1)));
         try {
             $result = $this->gameLoop->advance($this->context, $days);
-            $this->session->flash('success', sprintf('%d jour(s) écoulé(s), %d match(s) simulé(s), %d entraînement(s) appliqué(s).', $result['days'], $result['matches'], $result['training']));
+            $message = sprintf('%d jour(s) écoulé(s), %d match(s) simulé(s), %d entraînement(s) appliqué(s).', $result['days'], $result['matches'], $result['training']);
+            if ($result['awaiting_match'] > 0) {
+                $message .= ' Votre match du jour est prêt : cliquez sur « Jouer le match ».';
+            }
+            $this->session->flash('success', $message);
         } catch (Throwable $exception) {
             $this->session->flash('error', $this->exceptionMessage($exception));
         }

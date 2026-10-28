@@ -37,6 +37,17 @@ final class MatchController extends GameController
         try {$state=$this->matches->start($this->context,(int)$fixture);return $request->expectsJson()?$this->json($this->payload($state)):$this->redirect($this->saveUrl('matches/'.$fixture));}
         catch(Throwable $e){return $this->error($request,$e);}
     }
+    public function simulate(Request $request,string $save,string $fixture): Response
+    {
+        try {
+            $state=$this->matches->simulateForUser($this->context,(int)$fixture);
+            return $request->expectsJson()
+                ? $this->json($this->payload($state))
+                : $this->redirect($this->saveUrl('matches/'.$fixture));
+        } catch(Throwable $e) {
+            return $this->error($request,$e);
+        }
+    }
     public function step(Request $request,string $save,string $fixture): Response
     {
         try{return $this->json($this->payload($this->matches->step($this->context,(int)$fixture)));}

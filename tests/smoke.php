@@ -248,6 +248,7 @@ REGEX;
     $assertSame(302, $router->dispatch(new Request('GET', '/', [], [], [], []))->status(), 'La racine doit rediriger un invité.');
     $assertSame(302, $router->dispatch(new Request('GET', '/saves', [], [], [], []))->status(), 'Les parties doivent être protégées.');
     $assertSame(419, $router->dispatch(new Request('POST', '/login', [], [], [], []))->status(), 'Une connexion sans CSRF doit être bloquée avant PDO.');
+    $assertSame(419, $router->dispatch(new Request('POST', '/saves/1/matches/1/simulate', [], [], [], []))->status(), 'La simulation d’un match sans CSRF doit être bloquée avant PDO.');
 
     // Le catalogue correspond bien aux deux divisions tunisiennes attendues.
     $catalog = new App\Services\ClubCatalog(base_path('database/data'));

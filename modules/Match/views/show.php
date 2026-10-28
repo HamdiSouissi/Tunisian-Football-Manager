@@ -1,6 +1,7 @@
 <?php
 $base = '/saves/' . (int)$context->saveId() . '/matches/' . (int)$fixture['id'];
 $status = $state['status'] ?? $fixture['status'];
+$canPlay = format_date($fixture['scheduled_at'], 'Y-m-d') <= $context->save()['current_date'];
 $homeScore = $state['home_score'] ?? ($fixture['home_score'] ?? 0);
 $awayScore = $state['away_score'] ?? ($fixture['away_score'] ?? 0);
 $emptyStats = ['possession' => 0, 'shots' => 0, 'on_target' => 0, 'fouls' => 0, 'yellow' => 0, 'red' => 0];
@@ -22,7 +23,25 @@ $styleLabels = ['mixed' => 'Mixte', 'possession' => 'Possession', 'direct' => 'J
     </div>
 
     <?php if ($status === 'scheduled'): ?>
-        <section class="panel match-start"><div class="panel__body"><h2>Le vestiaire vous attend</h2><p>Vérifiez votre tactique avant le coup d’envoi. Le match se déroule minute par minute.</p><a class="btn btn--ghost" href="/saves/<?= (int)$context->saveId() ?>/tactics">Voir la tactique</a><form method="post" action="<?= $base ?>/start"><input type="hidden" name="_token" value="<?= e(csrf_token()) ?>"><button class="btn btn--primary">Coup d’envoi</button></form></div></section>
+        <section class="panel match-start">
+            <div class="panel__body">
+                <h2>Le vestiaire vous attend</h2>
+                <p>Simulez immédiatement la rencontre ou prenez place sur le banc pour la jouer minute par minute.</p>
+                <a class="btn btn--ghost" href="/saves/<?= (int)$context->saveId() ?>/tactics">Voir la tactique</a>
+                <?php if ($canPlay): ?>
+                    <form method="post" action="<?= $base ?>/simulate">
+                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <button class="btn btn--primary" type="submit">Jouer le match</button>
+                    </form>
+                    <form method="post" action="<?= $base ?>/start">
+                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <button class="btn btn--ghost" type="submit">Coup d’envoi en direct</button>
+                    </form>
+                <?php else: ?>
+                    <span class="badge">Jouable le <?= format_date($fixture['scheduled_at'], 'd/m/Y') ?></span>
+                <?php endif; ?>
+            </div>
+        </section>
     <?php else: ?>
         <div class="match-controls">
             <button class="btn btn--primary" id="match-step" <?= in_array($status, ['finished', 'halftime'], true) ? 'disabled' : '' ?>>Jouer 1 minute</button>
