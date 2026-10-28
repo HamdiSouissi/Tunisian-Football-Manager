@@ -1,0 +1,27 @@
+# Configuration locale et secrets
+.env
+.env.*
+!.env.example
+
+# Dépendances éventuelles (non requises par le noyau)
+/vendor/
+/node_modules/
+
+# Fichiers d'exécution
+/storage/logs/*.log
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+
+# Outils et système
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Rapports et artefacts de tests
+/coverage/
+/.phpunit.cache/

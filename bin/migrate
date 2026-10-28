@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Core\Application;
+use App\Database\Migrator;
+
+/** @var Application $app */
+$app = require dirname(__DIR__) . '/bootstrap/app.php';
+$app->boot();
+
+/** @var Migrator $migrator */
+$migrator = $app->make(Migrator::class);
+$command = $argv[1] ?? 'migrate';
+
+try {
+    if (in_array($command, ['status', '--status'], true)) {
+        foreach ($migrator->status() as $migration) {
+            printf(
+                "[%s] %s%s\n",
+                $migration['ran'] ? 'x' : ' ',
+                $migration['migration'],
+                $migration['batch'] !== null ? ' (lot ' . $migration['batch'] . ')' : ''
+            );
+        }
+        exit(0);
+    }
+
+    if (in_array($command, ['help', '--help', '-h'], true)) {
+        echo "Usage : php bin/migrate [migrate|status]\n";
+        exit(0);
+    }
+
+    if ($command !== 'migrate') {
+        fwrite(STDERR, sprintf("Commande inconnue \"%s\". Utilisez --help.\n", $command));
+        exit(1);
+    }
+
+    $executed = $migrator->migrate();
+    if ($executed === []) {
+        echo "Base de données déjà à jour.\n";
+        exit(0);
+    }
+
+    foreach ($executed as $migration) {
+        printf("Migré : %s (lot %d)\n", $migration['migration'], $migration['batch']);
+    }
+    printf("%d migration(s) exécutée(s).\n", count($executed));
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage() . PHP_EOL);
+    exit(1);
+}
