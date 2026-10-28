@@ -35,7 +35,7 @@
             headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Le serveur a refusé cette action.');
+        if (!response.ok) throw new Error(data.error || data.message || `Le serveur a refusé cette action (HTTP ${response.status}).`);
         return data;
     };
 

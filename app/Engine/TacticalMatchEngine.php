@@ -53,6 +53,7 @@ final class TacticalMatchEngine implements MatchEngineInterface
             $state['new_events'] = [];
             return $state;
         }
+        $state = $this->normalizeState($state);
         $state['new_events'] = [];
         $regularMinutes = (int)$this->config->get('game.match.minutes',90);
         $regularHalftime = (int)$this->config->get('game.match.halftime',45);
@@ -75,6 +76,33 @@ final class TacticalMatchEngine implements MatchEngineInterface
             $state['status'] = 'finished';
             $state['new_events'][] = $this->event($minute,'info',null,'Coup de sifflet final.');
             $state = $this->statistics->finalize($state);
+        }
+        return $state;
+    }
+
+    /** Hydrate les directs créés avant l'introduction du moteur spatial. */
+    private function normalizeState(array $state): array
+    {
+        $state['added_time'] = array_merge(['first'=>1,'second'=>2], $state['added_time'] ?? []);
+        $state['weather'] ??= $this->weather->create($state);
+        $state['home_advantage'] ??= (float)$this->config->get('game.match.home_advantage',1.07);
+        $state['visual_tick_ms'] ??= (int)$this->config->get('game.match.visual_tick_ms',100);
+        $state['player_ratings'] = array_merge(['home'=>[],'away'=>[]], $state['player_ratings'] ?? []);
+        $state['player_minutes'] = array_merge(['home'=>[],'away'=>[]], $state['player_minutes'] ?? []);
+        $state['experience_gained'] = array_merge(['home'=>[],'away'=>[]], $state['experience_gained'] ?? []);
+        $state['man_of_the_match'] ??= null;
+        foreach (['home','away'] as $side) {
+            $state['stats'][$side] = array_merge($this->emptyStats(), $state['stats'][$side] ?? []);
+            $state['sides'][$side]['energy'] ??= 100.0;
+            $state['sides'][$side]['substitutions'] ??= 0;
+            $playerIds = array_unique([...array_keys($state['player_ratings'][$side]), ...array_keys($state['sides'][$side]['lineup'])]);
+            foreach ($playerIds as $playerId) {
+                $state['player_ratings'][$side][(int)$playerId] ??= 6.0;
+                $state['player_minutes'][$side][(int)$playerId] ??= 0;
+            }
+        }
+        if (!isset($state['spatial'])) {
+            $state = $this->spatial->initialize($state);
         }
         return $state;
     }

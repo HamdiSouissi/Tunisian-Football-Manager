@@ -221,6 +221,17 @@ try {
 
     $matchController = $app->make(Modules\Match\Controllers\MatchController::class);
     $app->config()->set('app.debug', true);
+    $startResponse = $matchController->start(new App\Core\Request('POST', '/saves/1/matches/1/start', [], [], [], []), '1', '1');
+    $legacyState = json_decode((string)$pdo->query('SELECT match_state FROM fixtures WHERE id=1')->fetchColumn(), true, 512, JSON_THROW_ON_ERROR);
+    unset($legacyState['spatial'], $legacyState['weather'], $legacyState['player_ratings'], $legacyState['player_minutes'], $legacyState['experience_gained']);
+    $legacyState['stats'] = ['home'=>['possession'=>0,'shots'=>0], 'away'=>['possession'=>0,'shots'=>0]];
+    $pdo->prepare('UPDATE fixtures SET match_state=:state WHERE id=1')->execute(['state'=>json_encode($legacyState, JSON_THROW_ON_ERROR)]);
+    $stepResponse = $matchController->step(new App\Core\Request('POST', '/saves/1/matches/1/step', [], [], [], []), '1', '1');
+    $stepPayload = json_decode($stepResponse->content(), true, 512, JSON_THROW_ON_ERROR);
+    $assert($startResponse->status() === 302 && $stepResponse->status() === 200 && $stepPayload['minute'] === 1 && count($stepPayload['visual']['frames']) === 10, 'Le démarrage puis la lecture de la première minute doivent fonctionner : ' . $stepResponse->content());
+    $secondStepResponse = $matchController->step(new App\Core\Request('POST', '/saves/1/matches/1/step', [], [], [], []), '1', '1');
+    $secondStepPayload = json_decode($secondStepResponse->content(), true, 512, JSON_THROW_ON_ERROR);
+    $assert($secondStepResponse->status() === 200 && $secondStepPayload['minute'] === 2 && count($secondStepPayload['visual']['frames']) === 10, 'La lecture doit continuer après persistence de l’état hydraté : ' . $secondStepResponse->content());
     $response = $matchController->simulate(new App\Core\Request('POST', '/saves/1/matches/1/simulate', [], [], [], []), '1', '1');
     $assert($response->status() === 302, 'Le bouton Jouer le match doit rediriger vers le rapport : ' . $response->content());
     $finished = $pdo->query('SELECT * FROM fixtures WHERE id=1')->fetch(PDO::FETCH_ASSOC);

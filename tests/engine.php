@@ -83,6 +83,12 @@ try {
     $penaltyEvent = $penaltyState['new_events'][0];
     $assert(in_array($penaltyEvent['type'], ['penalty_goal','penalty_miss'], true) && $penaltyState['stats']['home']['shots'] === 1 && $penaltyState['spatial']['ball']['kind'] === 'penalty', 'Le penalty doit être une action spatiale comptabilisée.');
 
+    $legacyState = $baseline;
+    unset($legacyState['spatial'], $legacyState['weather'], $legacyState['player_ratings'], $legacyState['player_minutes'], $legacyState['experience_gained']);
+    $legacyState['stats'] = ['home'=>['possession'=>0,'shots'=>0], 'away'=>['possession'=>0,'shots'=>0]];
+    $legacyState = $engine->advance($legacyState);
+    $assert($legacyState['minute'] === 1 && count($legacyState['spatial']['timeline']) === 10 && isset($legacyState['stats']['home']['passes'], $legacyState['player_ratings']['home'], $legacyState['weather']['type']), 'Un direct créé avant la refonte doit être hydraté puis lu sans erreur.');
+
     $attacking = $homeTactic;
     foreach ($attacking['lineup'] as &$entry) {
         $entry['instruction'] = 'attack';
