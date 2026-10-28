@@ -96,7 +96,7 @@ try {
         $statements = $splitter->invoke($migrator, (string) file_get_contents($migrationFile));
         $statementCount += count($statements);
     }
-    $assertSame(27, $statementCount, 'Nombre inattendu d’instructions de migration.');
+    $assertSame(28, $statementCount, 'Nombre inattendu d’instructions de migration.');
 
     // CURRENT_DATE est un mot-clé MySQL : l'identifiant doit rester échappé dans chaque requête.
     $quotedDateSql = [

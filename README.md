@@ -11,10 +11,10 @@ Jeu web de gestion d’un club de football tunisien, écrit en **PHP 8.1+ natif*
 - **Identité visuelle locale** : 32 blasons PNG en 256 × 256, dont 31 importés depuis leurs sources Internet et un monogramme de repli documenté ; aucun hotlink pendant le jeu. Voir [les sources des assets](public/assets/img/clubs/SOURCES.md).
 - **Interface plein écran** : coquille verrouillée à `100vw` / `100dvh`, sans défilement du document ; le contenu principal, la navigation et les listes denses possèdent leurs propres zones de défilement.
 - **Centre de commandement** : prochain match, bouton **Jouer le match** le jour de la rencontre, classement, objectif et confiance de la direction, finances, joueurs en vue, résultats et messagerie.
-- **Effectif** : portraits SVG générés localement et stables pour chaque joueur, tableau dense triable/filtrable, forme, moral, fatigue, blessures, valeur, fiche détaillée, statistiques de carrière et radar d’attributs sans bibliothèque externe.
+- **Effectif** : portraits SVG générés localement et stables pour chaque joueur, tableau dense triable/filtrable, forme, moral, fatigue, blessures, valeur, expérience acquise sur les minutes jouées, fiche détaillée, statistiques de carrière et radar d’attributs sans bibliothèque externe.
 - **Tactique** : six formations, onze titulaires, sept remplaçants, glisser-déposer et sélection au clic, mentalité, style, pressing, ligne, tempo, largeur, rôles et consignes individuelles interprétés par le moteur.
-- **Matchs** : simulation immédiate sur demande ou moteur minute par minute, occasions, buts, passes décisives, cartons, blessures, possession, fatigue, avantage domicile, direct interactif, lecture automatique, mi-temps, cinq remplacements et banc du coach sans rechargement permettant de changer réellement de formation et d’ajuster toutes les consignes.
-- **Championnat** : calendrier, résultats, statistiques, classement recalculé, forme et boucle d’avancement d’un à sept jours qui s’arrête le jour d’un match du club dirigé.
+- **Matchs FM/2D** : moteur spatial autoritaire sur 105 × 68 m, dix décisions par minute et Canvas interpolé à 60 FPS ; passes, dribbles, duels, tirs, corners, touches, sorties de but, hors-jeu, fautes, cartons, blessures et penalties naissent des positions et attributs. Lecture ×1/×2/×4/×8/×16, pause réelle, mi-temps et temps additionnel, cinq remplacements animés, coaching sans rechargement, météo, notes, homme du match, minutes individuelles et rapport complet. **Passer le match** calcule immédiatement tout le reste de la rencontre et persiste événements, fatigue, expérience, revenus et classement.
+- **Championnat** : calendrier mensuel, hebdomadaire ou en liste, préparation du prochain match, composition, forme récente, résultats et classement recalculé. **Aller au prochain match** et **Simuler jusqu’à cette date** avancent tout le monde par la boucle commune et s’arrêtent avant une rencontre du club dirigé.
 - **Entraînement** : programme collectif hebdomadaire, suivi individuel, intensité, qualité du staff, progression selon âge/potentiel, fatigue, blessures et rapports persistants.
 - **Mercato** : recherche multicritère, achats, ventes, joueurs libres, négociations salariales, offres, contre-offres, prêts et retours, fenêtres de transferts, shortlist, historique et actions des clubs IA.
 - **Finances et direction** : billetterie, salaires joueurs/staff, sponsors, droits TV, opérations de transfert, primes à la signature, budget, livre comptable, objectifs et licenciement lorsque la confiance tombe à zéro.
@@ -117,8 +117,9 @@ php tests/engine.php
 # Nécessite pdo_sqlite uniquement pour ce test, pas pour exploiter le jeu.
 php tests/sqlite_workflows.php
 
-# Syntaxe JavaScript si Node.js est disponible (non requis par l’application)
+# Syntaxe JavaScript et adaptateur Canvas si Node.js est disponible (non requis par l’application)
 for file in public/assets/js/*.js; do node --check "$file" || exit 1; done
+node tests/match_client.cjs
 ```
 
 Le détail des vérifications réellement exécutées et des tests restant à faire sur MySQL/navigateur figure dans [docs/TESTING.md](docs/TESTING.md).
@@ -170,6 +171,7 @@ tests/                Smoke tests, moteur et workflows PDO SQLite
 | `003_create_training_tables` | plans, suivis individuels et rapports |
 | `004_create_transfer_finance_and_message_tables` | transferts, offres, prêts, shortlist, finances, objectifs, messages, paramètres |
 | `005_add_live_match_state` | état JSON reprenable du direct |
+| `006_add_player_experience` | expérience cumulative calculée sur les apparitions et les notes |
 
 Toutes les données de simulation portent `save_id`. Les repositories et services doivent toujours filtrer sur cette clé en plus de l’identifiant technique.
 

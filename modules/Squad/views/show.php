@@ -31,6 +31,7 @@ $secondaryPositions = json_decode((string)($player['secondary_positions'] ?? '[]
     <div class="player-hero__ratings">
         <div><strong><?= (int)$player['overall_rating'] ?></strong><span>OVR</span></div>
         <div><strong><?= (int)$player['potential'] ?></strong><span>POT</span></div>
+        <div><strong><?= (int)($player['experience'] ?? 0) ?></strong><span>EXP</span></div>
     </div>
 </div>
 

@@ -146,6 +146,14 @@ Contraintes importantes :
 - conserver la cohérence entre score, statistiques et événements ;
 - ajouter des tests analogues à `tests/engine.php` avant de changer le binding.
 
+### Moteurs spatiaux et rendu
+
+`TacticalMatchEngine` orchestre les minutes avec `SpatialMatchEngine`, `TacticalEngine`, `AIEngine`, `PhysicsEngine`, `StatisticsEngine`, `WeatherEngine` et `CommentaryEngine`. Ces composants indépendants ne lisent ni PDO ni HTTP.
+
+Chaque minute fournit dix snapshots compacts : positions des joueurs, balle, score et reprise. `MatchController::payload()` ajoute les métadonnées publiques ; `public/assets/js/match.js` interpole ces snapshots avec `requestAnimationFrame`. Le navigateur ne doit jamais créer une position, une possession ou un événement de jeu : toute nouvelle action appartient au moteur PHP. Après une modification du format, exécuter aussi `node tests/match_client.cjs`.
+
+`CalendarEngine` construit les grilles sans accès à la base. `CalendarService` fait avancer le monde uniquement via `GameLoopService` ; ne pas ajouter de simulation SQL parallèle dans les routes du calendrier.
+
 Les tactiques interprétent les formations, rôles (`support`, `attack`, `defend`, `playmaker`, `target`) et consignes (`normal`, `attack`, `stay_back`). Une nouvelle formation exige actuellement de mettre à jour `TacticService::FORMATIONS` et les coordonnées de `public/assets/js/tactics.js`.
 
 ## 4. Remplacer l’IA des clubs

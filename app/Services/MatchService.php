@@ -220,6 +220,8 @@ final class MatchService
         $state = $this->engine->initialize($home, $away, $homeTactic, $awayTactic, [
             'home_ai_strength' => (int) $fixture['home_club_id'] === $managedClubId ? 1.0 : $aiStrength,
             'away_ai_strength' => (int) $fixture['away_club_id'] === $managedClubId ? 1.0 : $aiStrength,
+            'fixture_id' => (int)$fixture['id'],
+            'scheduled_at' => (string)$fixture['scheduled_at'],
         ]);
         $state['save_id'] = $saveId;
         $state['fixture_id'] = (int) $fixture['id'];
@@ -256,6 +258,17 @@ final class MatchService
         $completed = array_merge($fixture, ['home_score' => $state['home_score'], 'away_score' => $state['away_score'], 'status' => 'finished']);
         $this->league->recordResult($saveId, $completed);
         $this->morale->afterMatch($saveId, $fixture, $state);
+
+        foreach (['home', 'away'] as $side) {
+            $clubId = (int)$fixture[$side . '_club_id'];
+            foreach ($state['experience_gained'][$side] ?? [] as $playerId => $gain) {
+                if ((int)$gain <= 0) continue;
+                $this->database->execute(
+                    'UPDATE players SET experience=LEAST(100,experience+:experience) WHERE save_id=:save_id AND club_id=:club_id AND id=:player_id',
+                    ['experience'=>(int)$gain, 'save_id'=>$saveId, 'club_id'=>$clubId, 'player_id'=>(int)$playerId]
+                );
+            }
+        }
 
         $injuries = $this->database->select(
             'SELECT e.player_id, e.data, f.scheduled_at FROM match_events e JOIN fixtures f ON f.id=e.fixture_id

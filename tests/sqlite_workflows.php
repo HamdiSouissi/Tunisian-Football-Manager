@@ -58,7 +58,7 @@ try {
         'CREATE TABLE fixtures (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, season_id INTEGER, league_id INTEGER, round_number INTEGER DEFAULT 1, leg TEXT DEFAULT \'first\', matchday INTEGER DEFAULT 1, scheduled_at TEXT, status TEXT DEFAULT \'scheduled\', home_club_id INTEGER, away_club_id INTEGER, current_minute INTEGER DEFAULT 0, home_score INTEGER, away_score INTEGER, attendance INTEGER, statistics TEXT, match_state TEXT, started_at TEXT, finished_at TEXT)',
         'CREATE TABLE match_events (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, fixture_id INTEGER NOT NULL, club_id INTEGER, player_id INTEGER, related_player_id INTEGER, minute INTEGER, added_time INTEGER DEFAULT 0, type TEXT, description TEXT, data TEXT)',
         'CREATE TABLE standings (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, season_id INTEGER NOT NULL, league_id INTEGER NOT NULL, club_id INTEGER NOT NULL, position INTEGER DEFAULT 0, played INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, draws INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, goals_for INTEGER DEFAULT 0, goals_against INTEGER DEFAULT 0, goal_difference INTEGER DEFAULT 0, points INTEGER DEFAULT 0, form TEXT DEFAULT \'\')',
-        'CREATE TABLE players (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, club_id INTEGER, first_name TEXT, last_name TEXT, birth_date TEXT, nationality TEXT, primary_position TEXT, secondary_positions TEXT, preferred_foot TEXT, height_cm INTEGER, weight_kg INTEGER, market_value REAL, overall_rating INTEGER, potential INTEGER, form INTEGER, morale INTEGER, fatigue INTEGER, injury_type TEXT, injury_until TEXT, is_retired INTEGER DEFAULT 0)',
+        'CREATE TABLE players (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, club_id INTEGER, first_name TEXT, last_name TEXT, birth_date TEXT, nationality TEXT, primary_position TEXT, secondary_positions TEXT, preferred_foot TEXT, height_cm INTEGER, weight_kg INTEGER, market_value REAL, overall_rating INTEGER, potential INTEGER, experience INTEGER DEFAULT 0, form INTEGER, morale INTEGER, fatigue INTEGER, injury_type TEXT, injury_until TEXT, is_retired INTEGER DEFAULT 0)',
         'CREATE TABLE contracts (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, player_id INTEGER, club_id INTEGER, starts_on TEXT, ends_on TEXT, salary REAL, squad_role TEXT, release_clause REAL, signing_bonus REAL, status TEXT DEFAULT \'active\')',
         'CREATE TABLE staff (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, club_id INTEGER, quality INTEGER, wage REAL)',
         'CREATE TABLE training_plans (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, club_id INTEGER, week_start TEXT, focus TEXT, intensity TEXT, applied_at TEXT)',
@@ -69,7 +69,7 @@ try {
         'CREATE TABLE transfer_offers (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, parent_offer_id INTEGER, player_id INTEGER, from_club_id INTEGER, to_club_id INTEGER, initiated_by TEXT, offer_type TEXT, amount REAL, wage REAL, contract_years INTEGER, signing_bonus REAL, loan_duration_months INTEGER, loan_wage_share REAL, buy_option REAL, status TEXT DEFAULT \'pending\', message TEXT, expires_at TEXT, responded_at TEXT)',
         'CREATE TABLE transfers (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, season_id INTEGER, player_id INTEGER, from_club_id INTEGER, to_club_id INTEGER, type TEXT, fee REAL, status TEXT, transfer_date TEXT, completed_at TEXT, details TEXT)',
         'CREATE TABLE loans (id INTEGER PRIMARY KEY, save_id INTEGER NOT NULL, status TEXT, ends_on TEXT)',
-        'CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, user_id INTEGER, club_id INTEGER, subject TEXT, body TEXT, category TEXT, action_url TEXT)',
+        'CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, user_id INTEGER, club_id INTEGER, subject TEXT, body TEXT, category TEXT, action_url TEXT, is_read INTEGER DEFAULT 0)',
         'CREATE TABLE tactics (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, club_id INTEGER NOT NULL, fixture_id INTEGER, name TEXT, formation TEXT, mentality TEXT, playing_style TEXT, pressing TEXT, defensive_line TEXT, tempo TEXT, width TEXT, lineup TEXT, substitutes TEXT, individual_instructions TEXT, captain_player_id INTEGER, penalty_taker_id INTEGER, free_kick_taker_id INTEGER, is_default INTEGER)',
     ];
     foreach ($schema as $statement) {
@@ -189,8 +189,9 @@ try {
     }
     $assert($futureRejected && $pdo->query('SELECT status FROM fixtures WHERE id=1')->fetchColumn() === 'scheduled', 'Un match futur ne doit pas être simulable.');
 
-    $matchDay = $gameLoop->advance($context, 7);
-    $assert($matchDay['days'] === 1 && $matchDay['awaiting_match'] === 1 && $context->save()['current_date'] === '2026-07-11', 'Continuer doit s’arrêter le jour du match du club.');
+    $calendarService = $app->make(App\Services\CalendarService::class);
+    $matchDay = $calendarService->advanceUntil($context, '2026-07-15');
+    $assert($matchDay['days'] === 1 && $matchDay['awaiting_match'] === 1 && $matchDay['reached'] === false && $context->save()['current_date'] === '2026-07-11', 'Simuler jusqu’à une date doit s’arrêter le jour du match du club.');
     $assert($pdo->query('SELECT status FROM fixtures WHERE id=1')->fetchColumn() === 'scheduled', 'Le match du club ne doit plus être simulé sans action du manager.');
     $advanceBlocked = false;
     try {
@@ -226,11 +227,23 @@ try {
     $finishedState = json_decode((string)$finished['match_state'], true, 512, JSON_THROW_ON_ERROR);
     $goalCount = (int)$pdo->query("SELECT COUNT(*) FROM match_events WHERE fixture_id=1 AND type IN ('goal','penalty_goal')")->fetchColumn();
     $played = array_map('intval', $pdo->query('SELECT played FROM standings WHERE club_id IN (1,2) ORDER BY club_id')->fetchAll(PDO::FETCH_COLUMN));
-    $assert($finished['status'] === 'finished' && (int)$finished['current_minute'] === 90 && $finishedState['status'] === 'finished', 'La simulation doit produire un match terminé après 90 minutes.');
+    $assert($finished['status'] === 'finished' && (int)$finished['current_minute'] === 90 + (int)$finishedState['added_time']['second'] && $finishedState['status'] === 'finished', 'La simulation doit produire un match terminé après le temps additionnel.');
+    $assert(isset($finishedState['man_of_the_match']['id']) && count($finishedState['player_ratings']['home']) === 11 && count($finishedState['player_ratings']['away']) === 11, 'Le rapport doit conserver les notes et l’homme du match.');
+    $assert(max($finishedState['player_minutes']['home']) === (int)$finished['current_minute'] && array_sum($finishedState['experience_gained']['home']) > 0, 'Les minutes et les gains d’expérience doivent être calculés.');
+    $assert((int)$pdo->query('SELECT COALESCE(SUM(experience),0) FROM players WHERE club_id=1')->fetchColumn() === array_sum($finishedState['experience_gained']['home']), 'L’expérience persistée doit correspondre aux gains du rapport.');
+    $lastFrame = $finishedState['spatial']['timeline'][array_key_last($finishedState['spatial']['timeline'])] ?? null;
+    $assert(isset($finishedState['weather']['type']) && $lastFrame !== null && count($lastFrame['players']['home']) >= 10 && count($lastFrame['players']['away']) >= 10, 'La simulation doit persister la météo et les positions des joueurs non expulsés.');
     $assert($goalCount === (int)$finished['home_score'] + (int)$finished['away_score'], 'Le score simulé doit correspondre aux événements de but.');
     $assert($played === [1, 1], 'Les deux clubs doivent avoir exactement un match de plus au classement.');
     $assert((int)$finished['attendance'] > 0 && (int)$pdo->query("SELECT COUNT(*) FROM finances WHERE category='ticketing' AND reference_id=1")->fetchColumn() === 1, 'La billetterie du match simulé est absente.');
     $assert((int)$pdo->query("SELECT COUNT(*) FROM messages WHERE category='result' AND action_url='/saves/1/matches/1'")->fetchColumn() === 1, 'Le message de résultat est absent.');
+    $report = $matchController->show(new App\Core\Request('GET', '/saves/1/matches/1', [], [], [], []), '1', '1');
+    $reportHtml = $report->content();
+    $assert($report->status() === 200 && str_contains($reportHtml, 'id="match-pitch"') && str_contains($reportHtml, 'id="match-initial-data"') && str_contains($reportHtml, 'Homme du match'), 'Le rapport doit exposer le terrain et ses données initiales. HTTP ' . $report->status() . ' : ' . substr(strip_tags($reportHtml), 0, 500));
+    $leagueController = $app->make(Modules\League\Controllers\LeagueController::class);
+    $calendarResponse = $leagueController->calendar(new App\Core\Request('GET', '/saves/1/calendar', ['view'=>'month','date'=>'2026-07-11'], [], [], []));
+    $calendarHtml = $calendarResponse->content();
+    $assert($calendarResponse->status() === 200 && str_contains($calendarHtml, 'calendar-month') && str_contains($calendarHtml, 'Forme récente') && str_contains($calendarHtml, 'Simuler jusqu’à cette date'), 'Le calendrier mensuel et sa préparation doivent être rendus. HTTP ' . $calendarResponse->status());
 
     $eventCount = (int)$pdo->query('SELECT COUNT(*) FROM match_events WHERE fixture_id=1')->fetchColumn();
     $matchService->simulateForUser($context, 1);

@@ -20,8 +20,16 @@ final class MoraleService
             $other = (int) $state[$otherSide.'_score'];
             $moraleDelta = $own > $other ? 5 : ($own === $other ? 1 : -4);
             $formDelta = $own > $other ? 4 : ($own === $other ? 0 : -3);
-            $ids = array_map(static fn($e)=>(int)$e['player_id'],$state['sides'][$side]['tactic']['lineup']);
-            $this->updateGroup($saveId,$clubId,$ids,9,$moraleDelta,$formDelta);
+            $groups = [];
+            foreach ($state['player_minutes'][$side] ?? [] as $playerId => $minutes) {
+                if ((int)$minutes <= 0) continue;
+                $fatigue = (int)$minutes >= 45 ? 9 : ((int)$minutes >= 15 ? 6 : 3);
+                $groups[$fatigue][] = (int)$playerId;
+            }
+            if ($groups === []) {
+                $groups[9] = array_map(static fn($e)=>(int)$e['player_id'],$state['sides'][$side]['tactic']['lineup']);
+            }
+            foreach ($groups as $fatigue => $ids) $this->updateGroup($saveId,$clubId,$ids,(int)$fatigue,$moraleDelta,$formDelta);
             $subIds = array_map(static fn($e)=>(int)$e['player_id'],$state['sides'][$side]['tactic']['substitutes']);
             $this->updateGroup($saveId,$clubId,$subIds,2,$moraleDelta,$formDelta);
         }

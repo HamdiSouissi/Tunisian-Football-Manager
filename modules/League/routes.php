@@ -7,5 +7,7 @@ use Modules\League\Controllers\LeagueController;
 $secure=[AuthMiddleware::class,SaveMiddleware::class];
 return static function(Router $router,Application $app) use ($secure): void {
  $router->get('/saves/{save}/calendar',[LeagueController::class,'calendar'])->where('save','[0-9]+')->middleware(...$secure);
+ $router->post('/saves/{save}/calendar/advance',[LeagueController::class,'advance'])->where('save','[0-9]+')->middleware(...$secure);
+ $router->post('/saves/{save}/calendar/next-match',[LeagueController::class,'nextMatch'])->where('save','[0-9]+')->middleware(...$secure);
  $router->get('/saves/{save}/standings',[LeagueController::class,'standings'])->where('save','[0-9]+')->middleware(...$secure);
 };

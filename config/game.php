@@ -37,10 +37,8 @@ return [
         'minutes' => 90,
         'halftime' => 45,
         'home_advantage' => 1.07,
-        'base_chance_probability' => 0.115,
-        'base_goal_probability' => 0.245,
+        'visual_tick_ms' => 100,
         'max_substitutions' => 5,
-        'injury_base_probability' => 0.0035,
     ],
     'training' => [
         'focus_attributes' => [

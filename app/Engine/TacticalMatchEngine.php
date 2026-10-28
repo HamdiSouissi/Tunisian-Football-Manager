@@ -12,13 +12,24 @@ use RuntimeException;
 /** Moteur minute par minute sans accès à la base ni au HTTP. */
 final class TacticalMatchEngine implements MatchEngineInterface
 {
-    public function __construct(private readonly Config $config)
-    {
+    private readonly SpatialMatchEngine $spatial;
+    private readonly StatisticsEngine $statistics;
+    private readonly WeatherEngine $weather;
+
+    public function __construct(
+        private readonly Config $config,
+        ?SpatialMatchEngine $spatial = null,
+        ?StatisticsEngine $statistics = null,
+        ?WeatherEngine $weather = null,
+    ) {
+        $this->spatial = $spatial ?? new SpatialMatchEngine($config, new TacticalEngine(), new AIEngine(), new PhysicsEngine(), new CommentaryEngine());
+        $this->statistics = $statistics ?? new StatisticsEngine();
+        $this->weather = $weather ?? new WeatherEngine();
     }
 
     public function initialize(array $homePlayers, array $awayPlayers, array $homeTactic, array $awayTactic, array $options = []): array
     {
-        return [
+        $state = [
             'minute' => 0, 'status' => 'live', 'home_score' => 0, 'away_score' => 0, 'new_events' => [],
             'sides' => [
                 'home' => $this->buildSide($homePlayers, $homeTactic, (float)($options['home_ai_strength'] ?? 1.0)),
@@ -28,7 +39,12 @@ final class TacticalMatchEngine implements MatchEngineInterface
                 'home' => $this->emptyStats(), 'away' => $this->emptyStats(),
             ],
             'home_advantage' => (float)($options['home_advantage'] ?? $this->config->get('game.match.home_advantage',1.07)),
+            'weather' => $this->weather->create($options),
+            'added_time' => ['first' => random_int(1, 3), 'second' => random_int(2, 5)],
+            'visual_tick_ms' => (int)$this->config->get('game.match.visual_tick_ms',100),
         ];
+        $state = $this->spatial->initialize($state);
+        return $this->statistics->initialize($state);
     }
 
     public function advance(array $state, bool $ignoreHalftime = false): array
@@ -38,36 +54,27 @@ final class TacticalMatchEngine implements MatchEngineInterface
             return $state;
         }
         $state['new_events'] = [];
-        $state['minute'] = min((int)$this->config->get('game.match.minutes',90), (int)$state['minute'] + 1);
+        $regularMinutes = (int)$this->config->get('game.match.minutes',90);
+        $regularHalftime = (int)$this->config->get('game.match.halftime',45);
+        $halftime = $regularHalftime + (int)($state['added_time']['first'] ?? 1);
+        $fullTime = $regularMinutes + (int)($state['added_time']['second'] ?? 2);
+        $state['minute'] = min($fullTime, (int)$state['minute'] + 1);
         $minute = (int)$state['minute'];
-        $homeStrength = $this->strength($state,'home') * (float)$state['home_advantage'];
-        $awayStrength = $this->strength($state,'away');
-        $possessionHome = $homeStrength / max(1,$homeStrength+$awayStrength);
-        $possessionSide = $this->random() < $possessionHome ? 'home' : 'away';
-        $state['stats'][$possessionSide]['possession']++;
+        $attackSide = (string)($state['spatial']['ball']['side'] ?? 'home');
+        $state['stats'][$attackSide]['possession']++;
         $this->applyEnergy($state);
 
-        $attackSide = $this->random() < $possessionHome ? 'home' : 'away';
-        $defenseSide = $attackSide === 'home' ? 'away' : 'home';
-        $attack = $this->strength($state,$attackSide) * $this->styleMatchup($state,$attackSide);
-        $defense = $this->strength($state,$defenseSide);
-        $ratio = max(.55,min(1.65,$attack/max(1,$defense)));
-        $chanceProbability = (float)$this->config->get('game.match.base_chance_probability',.115) * $ratio;
+        // Toutes les actions ordinaires et disciplinaires naissent de la simulation spatiale.
+        $state = $this->spatial->advanceMinute($state);
+        $state = $this->statistics->record($state, $state['new_events']);
 
-        if ($this->random() < $chanceProbability) {
-            $state = $this->chance($state,$attackSide,$ratio);
-        } elseif ($this->random() < .075) {
-            $state = $this->foul($state,$defenseSide);
-        } elseif ($this->random() < (float)$this->config->get('game.match.injury_base_probability',.0035)) {
-            $state = $this->injury($state,$attackSide);
-        }
-
-        if ($minute === (int)$this->config->get('game.match.halftime',45) && !$ignoreHalftime) {
+        if ($minute === $halftime && !$ignoreHalftime) {
             $state['status'] = 'halftime';
             $state['new_events'][] = $this->event($minute,'info',null,'Mi-temps. Vous pouvez ajuster la tactique et effectuer vos remplacements.');
-        } elseif ($minute >= (int)$this->config->get('game.match.minutes',90)) {
+        } elseif ($minute >= $fullTime) {
             $state['status'] = 'finished';
             $state['new_events'][] = $this->event($minute,'info',null,'Coup de sifflet final.');
+            $state = $this->statistics->finalize($state);
         }
         return $state;
     }
@@ -78,6 +85,9 @@ final class TacticalMatchEngine implements MatchEngineInterface
             throw new RuntimeException('Côté invalide.');
         }
         $current = $state['sides'][$side];
+        if (!empty($current['lineup'][$outPlayerId]['sent_off'])) {
+            throw new RuntimeException('Un joueur expulsé ne peut pas être remplacé.');
+        }
         if ((int)$current['substitutions'] >= (int)$this->config->get('game.match.max_substitutions',5)) {
             throw new RuntimeException('Nombre maximal de remplacements atteint.');
         }
@@ -101,7 +111,8 @@ final class TacticalMatchEngine implements MatchEngineInterface
         $rebuilt['substitutions'] = (int)$current['substitutions']+1;
         $state['sides'][$side] = $rebuilt;
         $state['new_events'][] = $this->event((int)$state['minute'],'substitution',$side,sprintf('Remplacement : %s cède sa place à %s.',$outName,$inName),$inPlayerId,$outPlayerId);
-        return $state;
+        $state = $this->statistics->synchronize($state);
+        return $this->spatial->synchronize($state, ['side' => $side, 'out' => $outPlayerId, 'in' => $inPlayerId]);
     }
 
     public function changeTactic(array $state, string $side, array $tactic): array
@@ -114,6 +125,8 @@ final class TacticalMatchEngine implements MatchEngineInterface
         $rebuilt = $this->restoreSideState($rebuilt, $current);
         $rebuilt['substitutions'] = (int)$current['substitutions'];
         $state['sides'][$side] = $rebuilt;
+        $state = $this->statistics->synchronize($state);
+        $state = $this->spatial->synchronize($state);
         $formationChanged = (string)($current['tactic']['formation'] ?? '') !== (string)($tactic['formation'] ?? '');
         $description = $formationChanged
             ? 'Nouvelle organisation en ' . $tactic['formation'] . ' et consignes appliquées.'
@@ -132,6 +145,7 @@ final class TacticalMatchEngine implements MatchEngineInterface
             }
             $entry['cards'] = (int)($current['lineup'][$playerId]['cards'] ?? 0);
             $entry['injured'] = (bool)($current['lineup'][$playerId]['injured'] ?? false);
+            $entry['sent_off'] = (bool)($current['lineup'][$playerId]['sent_off'] ?? false);
         }
         unset($entry);
         return $rebuilt;
@@ -194,88 +208,6 @@ final class TacticalMatchEngine implements MatchEngineInterface
             'base_ratings'=>['attack'=>$attack*$aiStrength,'defense'=>$defense*$aiStrength,'midfield'=>$midfield*$aiStrength]];
     }
 
-    private function strength(array $state,string $side): float
-    {
-        $s = $state['sides'][$side]; $energy = .85+(float)$s['energy']/500;
-        return (($s['base_ratings']['attack']*.38)+($s['base_ratings']['midfield']*.34)+($s['base_ratings']['defense']*.28))*$energy;
-    }
-
-    private function styleMatchup(array $state,string $attackSide): float
-    {
-        $defenseSide=$attackSide==='home'?'away':'home';
-        $attackStyle=$state['sides'][$attackSide]['tactic']['playing_style'];
-        $defensiveLine=$state['sides'][$defenseSide]['tactic']['defensive_line'];
-        if ($attackStyle==='counter' && $defensiveLine==='high') return 1.16;
-        if ($attackStyle==='possession' && $defensiveLine==='deep') return 1.07;
-        if ($attackStyle==='long_ball' && $defensiveLine==='high') return 1.08;
-        return 1.0;
-    }
-
-    private function chance(array $state,string $side,float $ratio): array
-    {
-        $state['stats'][$side]['chances']++; $state['stats'][$side]['shots']++;
-        $attack = $state['sides'][$side]['base_ratings']['attack'];
-        $other = $side==='home'?'away':'home'; $defense = $state['sides'][$other]['base_ratings']['defense'];
-        $goalProbability=(float)$this->config->get('game.match.base_goal_probability',.245)*max(.55,min(1.6,$attack/max(1,$defense)));
-        $isPenalty=$this->random()<.055;
-        $isGoal=$this->random()<$goalProbability;
-        $penaltyTaker=(int)($state['sides'][$side]['tactic']['penalty_taker_id']??0);
-        $scorer=$isPenalty&&isset($state['sides'][$side]['lineup'][$penaltyTaker])?$penaltyTaker:$this->pickPlayer($state,$side,true);
-        $scorerName=$state['sides'][$side]['lineup'][$scorer]['name'] ?? 'Joueur';
-        if ($isGoal) {
-            $state[$side.'_score']++;
-            $state['stats'][$side]['on_target']++;
-            $assist=$this->pickPlayer($state,$side,false);
-            $assist=$assist===$scorer?null:$assist;
-            $state['new_events'][]=$this->event((int)$state['minute'],$isPenalty?'penalty_goal':'goal',$side,
-                ($isPenalty?'Penalty transformé par ':'But de ').$scorerName.' !',$scorer,$assist,['score'=>[$state['home_score'],$state['away_score']]]);
-        } else {
-            $onTarget=$this->random()<.55;
-            if($onTarget)$state['stats'][$side]['on_target']++;
-            $state['new_events'][]=$this->event((int)$state['minute'],$isPenalty?'penalty_miss':($onTarget?'shot_on_target':'chance'),$side,
-                $isPenalty ? 'Penalty manqué par '.$scorerName.'.' : ($onTarget ? 'Frappe cadrée de '.$scorerName.', le gardien intervient.' : 'Occasion pour '.$scorerName.', mais le ballon passe à côté.'),$scorer);
-        }
-        return $state;
-    }
-
-    private function foul(array $state,string $side): array
-    {
-        $state['stats'][$side]['fouls']++; $player=$this->pickPlayer($state,$side,false);
-        $name=$state['sides'][$side]['lineup'][$player]['name'] ?? 'Joueur';
-        $card=$this->random();
-        if($card<.22){
-            $state['sides'][$side]['lineup'][$player]['cards']++;
-            if($state['sides'][$side]['lineup'][$player]['cards']>=2 || $card<.018){
-                $state['stats'][$side]['red']++;
-                $state['sides'][$side]['base_ratings']['defense']*=.88;
-                $state['sides'][$side]['base_ratings']['midfield']*=.92;
-                $state['new_events'][]=$this->event((int)$state['minute'],'red_card',$side,'Carton rouge pour '.$name.' !',$player);
-            }else{$state['stats'][$side]['yellow']++;$state['new_events'][]=$this->event((int)$state['minute'],'yellow_card',$side,'Carton jaune pour '.$name.'.',$player);}
-        }else{$state['new_events'][]=$this->event((int)$state['minute'],'foul',$side,'Faute de '.$name.'.',$player);}
-        return $state;
-    }
-
-    private function injury(array $state,string $side): array
-    {
-        $player=$this->pickPlayer($state,$side,false);$state['stats'][$side]['injuries']++;
-        $state['sides'][$side]['lineup'][$player]['injured']=true;
-        $days=random_int(3,42);$name=$state['sides'][$side]['lineup'][$player]['name'] ?? 'Joueur';
-        $state['sides'][$side]['base_ratings']['attack']*=.98;$state['sides'][$side]['base_ratings']['defense']*=.98;
-        $state['new_events'][]=$this->event((int)$state['minute'],'injury',$side,$name.' se blesse et pourrait être indisponible.',$player,null,['days'=>$days]);
-        return $state;
-    }
-
-    private function pickPlayer(array $state,string $side,bool $attacker): int
-    {
-        $weighted=[];
-        foreach($state['sides'][$side]['lineup'] as $id=>$player){
-            $group=PlayerFactory::group((string)$player['position']);
-            $weight=$attacker?(['ATT'=>6,'WING'=>4,'MID'=>2,'DEF'=>.25,'GK'=>.05][$group]??1):1;
-            for($i=0;$i<max(1,(int)ceil($weight));$i++)$weighted[]=(int)$id;
-        }
-        return $weighted[array_rand($weighted)];
-    }
-
     private function positionalFit(array $player,string $position): float
     {
         if($player['primary_position']===$position)return 1.0;
@@ -287,11 +219,18 @@ final class TacticalMatchEngine implements MatchEngineInterface
 
     private function applyEnergy(array &$state): void
     {
-        foreach(['home','away'] as $side){$pressing=$state['sides'][$side]['tactic']['pressing'];$loss=$pressing==='high'?.055:($pressing==='low'?.018:.032);$state['sides'][$side]['energy']=max(55,(float)$state['sides'][$side]['energy']-$loss);}
+        $weatherCost = (float)($state['weather']['energy_cost'] ?? 1.0);
+        foreach(['home','away'] as $side){
+            $pressing=$state['sides'][$side]['tactic']['pressing'];
+            $loss=$pressing==='high'?.055:($pressing==='low'?.018:.032);
+            $state['sides'][$side]['energy']=max(55,(float)$state['sides'][$side]['energy']-$loss*$weatherCost);
+        }
     }
 
-    private function emptyStats(): array { return ['possession'=>0,'chances'=>0,'shots'=>0,'on_target'=>0,'fouls'=>0,'yellow'=>0,'red'=>0,'injuries'=>0]; }
-    private function random(): float { return random_int(0,1000000)/1000000; }
+    private function emptyStats(): array
+    {
+        return ['possession'=>0,'chances'=>0,'shots'=>0,'on_target'=>0,'passes'=>0,'passes_completed'=>0,'crosses'=>0,'corners'=>0,'dribbles'=>0,'tackles'=>0,'interceptions'=>0,'offsides'=>0,'fouls'=>0,'yellow'=>0,'red'=>0,'injuries'=>0];
+    }
     private function event(int $minute,string $type,?string $side,string $description,?int $playerId=null,?int $relatedId=null,array $data=[]): array
     { return ['minute'=>$minute,'type'=>$type,'side'=>$side,'description'=>$description,'player_id'=>$playerId,'related_player_id'=>$relatedId,'data'=>$data]; }
 }

@@ -10,10 +10,11 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 
 | Vérification | Résultat |
 |---|---|
-| Analyse syntaxique PHP avec `TOKEN_PARSE` | **129 fichiers, 0 erreur** |
+| Analyse syntaxique PHP avec `TOKEN_PARSE` | **138 fichiers, 0 erreur** |
 | `tests/smoke.php` | **Smoke tests : OK** |
-| `tests/engine.php` | **12 exécutions consécutives : Tests moteur, calendrier et IA : OK** |
-| `tests/sqlite_workflows.php` | **5 exécutions consécutives : +1 jour, Continuer, tactique, mercato IA et simulation au jour du match OK** |
+| `tests/engine.php` | **Tests moteur, calendrier et IA : OK** |
+| `tests/sqlite_workflows.php` | **Workflows PDO : jour de match, rapport, calendrier, expérience et persistance OK** |
+| `tests/match_client.cjs` | **Frames compactes, score, possesseur, numéros et reprise Canvas : OK** |
 | Assets des clubs | **32/32 slugs couverts, 32 PNG valides en 256 × 256** |
 | Portraits générés | **Déterminisme, variante et échappement testés ; six variantes converties en PNG et inspectées** |
 | `node --check` sur les cinq fichiers JS | **OK** |
@@ -26,7 +27,7 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - autowiring de la boucle, de la fin de saison, des services et des contrôleurs ;
 - bindings `MatchEngineInterface` et `AIManagerInterface` ;
 - dispatcher, motifs génériques et priorités ;
-- découpage des **27 instructions** de migration ;
+- découpage des **28 instructions** de migration ;
 - régression MySQL : `` `current_date` `` reste échappé dans les quatre requêtes de création/lecture/avancement/rollover ;
 - avancement d’une date avec changement de mois et année bissextile, sans l’appel inexistant `DateTimeImmutable::addDay()` ;
 - récupération de fatigue avec une soustraction explicitement signée avant application de `GREATEST`, pour éviter le dépassement MySQL `22003` sur une colonne `UNSIGNED` ;
@@ -56,7 +57,8 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 - dates et compteurs de jours contrôlés après chaque avancement ;
 - refus de simuler un match futur ou celui d’un autre club ;
 - arrêt de **Continuer** sur la date du match du club, blocage d’un nouvel avancement et affichage du bouton **Jouer le match** protégé par CSRF ;
-- redirection du contrôleur vers le rapport après simulation, match terminé à 90 minutes, score cohérent avec les événements, classement, billetterie et message de résultat ;
+- redirection du contrôleur vers le rapport après simulation, match terminé après le temps additionnel, score cohérent avec les événements, classement, billetterie et message de résultat ;
+- rendu du rapport Canvas et du calendrier mensuel, notes/homme du match, minutes individuelles et expérience persistée correspondant exactement aux gains du moteur ;
 - absence de duplication des événements et de double comptabilisation au classement lors d’un second appel, puis reprise de l’avancement le lendemain.
 
 ### Couverture du moteur et du calendrier
@@ -67,8 +69,10 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 - changement de mentalité, pressing et formation en direct avec réattribution des onze postes ;
 - conservation des joueurs, de l’énergie et des cartons après un ajustement tactique ;
 - payload du direct exposant la formation, le onze et le banc à jour pour une synchronisation sans rechargement ;
-- déroulement jusqu’à 90 minutes avec mi-temps à 45 ;
-- possession cumulée sur 90 minutes ;
+- déroulement jusqu’à 90 minutes plus le temps additionnel, avec mi-temps après celui de la première période ;
+- possession cumulée sur toutes les minutes jouées, dix frames par minute, continuité du ballon et joueurs non expulsés ;
+- touches, hors-jeu avec deuxième dernier défenseur, penalty spatial, corners, duels et reprises ;
+- navigation mensuelle sur 42 cellules et hebdomadaire du lundi au dimanche ;
 - égalité entre les buts du score et les événements de but ;
 - 240 rencontres pour une division de 16 clubs, 30 matchs par club, aucune confrontation dupliquée dans une phase et aucun match contre soi-même ;
 - acceptation/refus/contre-offre de l’IA et ouverture des fenêtres d’été/hiver.
@@ -86,7 +90,7 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 
 Aucun serveur MySQL/MariaDB ou navigateur n’était disponible. En conséquence, les éléments suivants ne sont **pas déclarés validés de bout en bout** :
 
-- exécution réelle des cinq migrations et contraintes FK/index sur MySQL et MariaDB ;
+- exécution réelle des six migrations et contraintes FK/index sur MySQL et MariaDB ;
 - inscription/connexion avec écriture PDO ;
 - génération transactionnelle complète d’une sauvegarde ;
 - affichage authentifié de toutes les pages avec données réelles ;
@@ -102,7 +106,7 @@ Le runtime WebAssembly sert uniquement aux tests sans MySQL ; il n’est pas un 
 ### 1. Installation et identité
 
 1. Créer une base vierge et exécuter `php bin/migrate` puis `php bin/migrate status`.
-2. Vérifier que les cinq migrations sont enregistrées et que les tables/index/FK existent.
+2. Vérifier que les six migrations sont enregistrées et que les tables/index/FK existent.
 3. Créer un compte, se déconnecter, se reconnecter ; tester un mot de passe erroné et un POST sans CSRF.
 4. Vérifier qu’un utilisateur ne peut pas ouvrir la sauvegarde d’un autre utilisateur.
 
@@ -117,7 +121,7 @@ Le runtime WebAssembly sert uniquement aux tests sans MySQL ; il n’est pas un 
 
 1. Permuter deux titulaires, déplacer un remplaçant, changer formation, rôle, consigne et style ; enregistrer puis recharger.
 2. À la date du match, démarrer le direct, jouer jusqu’à la mi-temps, effectuer un remplacement, changer de formation et modifier les consignes. Vérifier la mise à jour du onze, du banc, des postes et des commentaires **sans rechargement**, puis la conservation de la fatigue et des cartons.
-3. Reprendre, recharger la page au cours du match et terminer les 90 minutes.
+3. Reprendre, recharger la page au cours du match et terminer les 90 minutes ainsi que le temps additionnel. Tester pause, ×1 à ×16, remplacement animé et **Passer le match**.
 4. Contrôler score/événements/statistiques, classement, fatigue, moral, billetterie et message de résultat.
 5. Vérifier qu’un match terminé ne peut pas être finalisé une seconde fois et que Continuer est bloqué pendant un direct.
 
