@@ -97,6 +97,7 @@ final class TacticalMatchEngine implements MatchEngineInterface
         $outName = $current['lineup'][$outPlayerId]['name'] ?? 'Joueur';
         $inName = $current['pool'][$inPlayerId]['first_name'].' '.$current['pool'][$inPlayerId]['last_name'];
         $rebuilt = $this->buildSide(array_values($current['pool']),$current['tactic'],(float)$current['ai_strength']);
+        $rebuilt = $this->restoreSideState($rebuilt, $current);
         $rebuilt['substitutions'] = (int)$current['substitutions']+1;
         $state['sides'][$side] = $rebuilt;
         $state['new_events'][] = $this->event((int)$state['minute'],'substitution',$side,sprintf('Remplacement : %s cède sa place à %s.',$outName,$inName),$inPlayerId,$outPlayerId);
@@ -110,10 +111,30 @@ final class TacticalMatchEngine implements MatchEngineInterface
         }
         $current = $state['sides'][$side];
         $rebuilt = $this->buildSide(array_values($current['pool']),$tactic,(float)$current['ai_strength']);
+        $rebuilt = $this->restoreSideState($rebuilt, $current);
         $rebuilt['substitutions'] = (int)$current['substitutions'];
         $state['sides'][$side] = $rebuilt;
-        $state['new_events'][] = $this->event((int)$state['minute'],'info',$side,'Nouvelles consignes tactiques appliquées.');
+        $formationChanged = (string)($current['tactic']['formation'] ?? '') !== (string)($tactic['formation'] ?? '');
+        $description = $formationChanged
+            ? 'Nouvelle organisation en ' . $tactic['formation'] . ' et consignes appliquées.'
+            : 'Nouvelles consignes tactiques appliquées.';
+        $state['new_events'][] = $this->event((int)$state['minute'],'info',$side,$description);
         return $state;
+    }
+
+    /** Un ajustement ne doit ni reposer l’équipe ni effacer cartons et blessures. */
+    private function restoreSideState(array $rebuilt, array $current): array
+    {
+        $rebuilt['energy'] = (float)($current['energy'] ?? 100.0);
+        foreach ($rebuilt['lineup'] as $playerId => &$entry) {
+            if (!isset($current['lineup'][$playerId])) {
+                continue;
+            }
+            $entry['cards'] = (int)($current['lineup'][$playerId]['cards'] ?? 0);
+            $entry['injured'] = (bool)($current['lineup'][$playerId]['injured'] ?? false);
+        }
+        unset($entry);
+        return $rebuilt;
     }
 
     private function buildSide(array $players, array $tactic, float $aiStrength): array

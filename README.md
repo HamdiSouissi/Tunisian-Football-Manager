@@ -11,9 +11,9 @@ Jeu web de gestion d’un club de football tunisien, écrit en **PHP 8.1+ natif*
 - **Identité visuelle locale** : 32 blasons PNG en 256 × 256, dont 31 importés depuis leurs sources Internet et un monogramme de repli documenté ; aucun hotlink pendant le jeu. Voir [les sources des assets](public/assets/img/clubs/SOURCES.md).
 - **Interface plein écran** : coquille verrouillée à `100vw` / `100dvh`, sans défilement du document ; le contenu principal, la navigation et les listes denses possèdent leurs propres zones de défilement.
 - **Centre de commandement** : prochain match, classement, objectif et confiance de la direction, finances, joueurs en vue, résultats et messagerie.
-- **Effectif** : tableau dense triable/filtrable, forme, moral, fatigue, blessures, valeur, fiche détaillée et radar d’attributs sans bibliothèque externe.
+- **Effectif** : portraits SVG générés localement et stables pour chaque joueur, tableau dense triable/filtrable, forme, moral, fatigue, blessures, valeur, fiche détaillée, statistiques de carrière et radar d’attributs sans bibliothèque externe.
 - **Tactique** : six formations, onze titulaires, sept remplaçants, glisser-déposer et sélection au clic, mentalité, style, pressing, ligne, tempo, largeur, rôles et consignes individuelles interprétés par le moteur.
-- **Matchs** : moteur minute par minute, occasions, buts, passes décisives, cartons, blessures, possession, fatigue, avantage domicile, direct interactif, lecture automatique, mi-temps, cinq remplacements et ajustements tactiques.
+- **Matchs** : moteur minute par minute, occasions, buts, passes décisives, cartons, blessures, possession, fatigue, avantage domicile, direct interactif, lecture automatique, mi-temps, cinq remplacements et banc du coach sans rechargement permettant de changer réellement de formation et d’ajuster toutes les consignes.
 - **Championnat** : calendrier, résultats, statistiques, classement recalculé, forme et boucle d’avancement d’un à sept jours.
 - **Entraînement** : programme collectif hebdomadaire, suivi individuel, intensité, qualité du staff, progression selon âge/potentiel, fatigue, blessures et rapports persistants.
 - **Mercato** : recherche multicritère, achats, ventes, joueurs libres, négociations salariales, offres, contre-offres, prêts et retours, fenêtres de transferts, shortlist, historique et actions des clubs IA.
@@ -91,7 +91,7 @@ Ces compteurs sont globaux à la base : avec plusieurs sauvegardes, filtrer avec
 
 1. **Effectif / Tactique** : vérifier le onze, les remplaçants et les consignes, puis enregistrer.
 2. **Continuer** : avancer d’un jour ou de sept jours. Les matchs du jour, l’entraînement du lundi, la récupération, les finances et les actions IA sont traités dans la boucle.
-3. **Match interactif** : depuis le dashboard ou le calendrier, ouvrir le match de votre club à sa date. Il peut être joué minute par minute au lieu d’être simulé automatiquement.
+3. **Match interactif** : depuis le dashboard ou le calendrier, ouvrir le match de votre club à sa date. Il peut être joué minute par minute au lieu d’être simulé automatiquement. Pendant le direct, le banc du coach permet les remplacements et le changement de formation ; toute intervention met la lecture automatique en pause et actualise le match sans rechargement.
 4. **Entraînement** : modifier le programme avant lundi et consulter le rapport après application.
 5. **Mercato** : recruter pendant les fenêtres du 15 juin au 31 août et du 1er au 31 janvier.
 6. **Fin de saison** : après le 31 mai, continuer pour clôturer la saison et générer la suivante.

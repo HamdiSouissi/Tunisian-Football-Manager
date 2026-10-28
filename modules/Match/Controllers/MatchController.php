@@ -10,6 +10,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Services\GameContext;
 use App\Services\MatchService;
+use App\Services\TacticService;
 use Throwable;
 
 final class MatchController extends GameController
@@ -25,7 +26,7 @@ final class MatchController extends GameController
             $data=$this->matches->fixtureForUser($this->context,(int)$fixture);
             $state=$data['match_state']?json_decode((string)$data['match_state'],true,512,JSON_THROW_ON_ERROR):null;
             $side=(int)$data['home_club_id']===$this->context->clubId()?'home':'away';
-            return $this->gameView('match::show',['title'=>$data['home_name'].' - '.$data['away_name'],'active'=>'calendar','fixture'=>$data,'state'=>$state,'events'=>$this->matches->events($this->context->saveId(),(int)$fixture),'side'=>$side]);
+            return $this->gameView('match::show',['title'=>$data['home_name'].' - '.$data['away_name'],'active'=>'calendar','fixture'=>$data,'state'=>$state,'events'=>$this->matches->events($this->context->saveId(),(int)$fixture),'side'=>$side,'formations'=>TacticService::FORMATIONS]);
         } catch (Throwable $exception) {
             return Response::html(e($this->exceptionMessage($exception)),404);
         }
@@ -59,8 +60,38 @@ final class MatchController extends GameController
 
     private function payload(array $state): array
     {
-        $sides=[];
-        foreach(['home','away'] as $side){$sides[$side]=['lineup'=>array_values($state['sides'][$side]['lineup']),'substitutes'=>$state['sides'][$side]['tactic']['substitutes'],'substitutions'=>$state['sides'][$side]['substitutions']];}
+        $sides = [];
+        foreach (['home', 'away'] as $side) {
+            $sideState = $state['sides'][$side];
+            $lineup = [];
+            foreach ($sideState['tactic']['lineup'] as $entry) {
+                $playerId = (int)$entry['player_id'];
+                $player = $sideState['lineup'][$playerId] ?? [];
+                $lineup[] = [
+                    'id' => $playerId, 'name' => (string)($player['name'] ?? 'Joueur'),
+                    'position' => (string)$entry['position'], 'cards' => (int)($player['cards'] ?? 0),
+                    'injured' => (bool)($player['injured'] ?? false),
+                ];
+            }
+            $substitutes = [];
+            foreach ($sideState['tactic']['substitutes'] as $entry) {
+                $playerId = (int)$entry['player_id'];
+                $player = $sideState['pool'][$playerId] ?? null;
+                if ($player !== null) {
+                    $substitutes[] = [
+                        'id' => $playerId, 'name' => $player['first_name'] . ' ' . $player['last_name'],
+                        'position' => (string)$player['primary_position'],
+                    ];
+                }
+            }
+            $sides[$side] = [
+                'lineup' => $lineup, 'substitutes' => $substitutes,
+                'substitutions' => (int)$sideState['substitutions'],
+                'tactic' => array_intersect_key($sideState['tactic'], array_flip([
+                    'formation', 'mentality', 'playing_style', 'pressing', 'defensive_line', 'tempo', 'width',
+                ])),
+            ];
+        }
         return ['minute'=>$state['minute'],'status'=>$state['status'],'home_score'=>$state['home_score'],'away_score'=>$state['away_score'],'stats'=>$state['stats'],'events'=>$state['new_events'],'sides'=>$sides];
     }
     private function error(Request $request,Throwable $exception): Response

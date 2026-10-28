@@ -84,6 +84,16 @@ if (!function_exists('club_logo')) {
     }
 }
 
+if (!function_exists('player_portrait')) {
+    /** @param array<string,mixed> $player */
+    function player_portrait(array $player, string $size = 'md'): string
+    {
+        static $generator = null;
+        $generator ??= new App\Services\PlayerPortrait();
+        return $generator->render($player, $size);
+    }
+}
+
 if (!function_exists('format_money')) {
     function format_money(mixed $value): string
     {

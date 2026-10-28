@@ -28,7 +28,8 @@ final class PlayerRepository
     public function find(int $saveId, int $playerId): ?array
     {
         return $this->database->selectOne(
-            'SELECT ' . $this->selectColumns() . ', c.name AS club_name, c.primary_color AS club_color
+            'SELECT ' . $this->selectColumns() . ', c.name AS club_name, c.slug AS club_slug,
+             c.primary_color AS club_color, c.secondary_color AS club_secondary_color
              FROM players p
              LEFT JOIN player_attributes a ON a.player_id = p.id AND a.save_id = p.save_id
              LEFT JOIN clubs c ON c.id = p.club_id AND c.save_id = p.save_id
@@ -36,6 +37,26 @@ final class PlayerRepository
              WHERE p.save_id = :save_id AND p.id = :player_id LIMIT 1',
             ['save_id' => $saveId, 'player_id' => $playerId]
         );
+    }
+
+    /** Statistiques cumulées à partir des événements réellement enregistrés. */
+    public function careerStats(int $saveId, int $playerId): array
+    {
+        $stats = $this->database->selectOne(
+            'SELECT
+             COALESCE(SUM(CASE WHEN player_id=:goal_player AND type IN (\'goal\',\'penalty_goal\') THEN 1 ELSE 0 END),0) AS goals,
+             COALESCE(SUM(CASE WHEN related_player_id=:assist_player AND type IN (\'goal\',\'penalty_goal\') THEN 1 ELSE 0 END),0) AS assists,
+             COALESCE(SUM(CASE WHEN player_id=:yellow_player AND type=\'yellow_card\' THEN 1 ELSE 0 END),0) AS yellow_cards,
+             COALESCE(SUM(CASE WHEN player_id=:red_player AND type=\'red_card\' THEN 1 ELSE 0 END),0) AS red_cards,
+             COALESCE(SUM(CASE WHEN player_id=:injury_player AND type=\'injury\' THEN 1 ELSE 0 END),0) AS injuries
+             FROM match_events WHERE save_id=:save_id AND (player_id=:where_player OR related_player_id=:where_related)',
+            [
+                'goal_player' => $playerId, 'assist_player' => $playerId,
+                'yellow_player' => $playerId, 'red_player' => $playerId, 'injury_player' => $playerId,
+                'save_id' => $saveId, 'where_player' => $playerId, 'where_related' => $playerId,
+            ]
+        );
+        return array_map('intval', $stats ?? ['goals' => 0, 'assists' => 0, 'yellow_cards' => 0, 'red_cards' => 0, 'injuries' => 0]);
     }
 
     public function search(int $saveId, array $filters): array

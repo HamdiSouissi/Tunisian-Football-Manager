@@ -51,6 +51,6 @@ final class SquadController extends GameController
             'Attaque' => (int) round(((int)$data['shooting'] + (int)$data['dribbling'] + (int)$data['composure']) / 3),
             'Gardien' => (int) round(((int)$data['reflexes'] + (int)$data['handling'] + (int)$data['aerial_reach'] + (int)$data['command_of_area']) / 4),
         ];
-        return $this->gameView('squad::show', ['title' => $data['first_name'].' '.$data['last_name'], 'active' => 'squad', 'player' => $data, 'attributes' => PlayerFactory::ATTRIBUTES, 'radar' => $groups, 'history' => $history, 'progress' => $progress, 'save' => $this->context->save()]);
+        return $this->gameView('squad::show', ['title' => $data['first_name'].' '.$data['last_name'], 'active' => 'squad', 'player' => $data, 'attributes' => PlayerFactory::ATTRIBUTES, 'radar' => $groups, 'history' => $history, 'progress' => $progress, 'career' => $this->players->careerStats($this->context->saveId(), (int)$player), 'save' => $this->context->save()]);
     }
 }

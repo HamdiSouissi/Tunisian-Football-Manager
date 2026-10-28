@@ -75,10 +75,29 @@ try {
     $assert($state['sides']['home']['substitutions'] === 1, 'Le compteur de remplacements est incorrect.');
 
     $liveTactic = $state['sides']['home']['tactic'];
+    $tacticDatabase = new App\Database\Database([]);
+    $tacticTools = new TacticService($tacticDatabase, new App\Models\PlayerRepository($tacticDatabase));
+    $beforeIds = array_column($liveTactic['lineup'], 'player_id');
+    $liveTactic['lineup'] = $tacticTools->remapLineup($liveTactic['lineup'], '4-4-2');
+    $liveTactic['formation'] = '4-4-2';
     $liveTactic['pressing'] = 'high';
     $liveTactic['mentality'] = 'attacking';
+    $assert($beforeIds === array_column($liveTactic['lineup'], 'player_id'), 'La formation ne doit pas remplacer les joueurs présents sur le terrain.');
+    $assert(TacticService::FORMATIONS['4-4-2'] === array_column($liveTactic['lineup'], 'position'), 'Les postes doivent correspondre à la nouvelle formation.');
+    $preservedId = (int)$liveTactic['lineup'][1]['player_id'];
+    $state['sides']['home']['energy'] = 73.5;
+    $state['sides']['home']['lineup'][$preservedId]['cards'] = 1;
     $state = $engine->changeTactic($state, 'home', $liveTactic);
     $assert($state['sides']['home']['tactic']['pressing'] === 'high', 'Le changement tactique en direct n’est pas appliqué.');
+    $assert($state['sides']['home']['tactic']['formation'] === '4-4-2', 'La formation en direct n’est pas appliquée.');
+    $assert((float)$state['sides']['home']['energy'] === 73.5, 'Un changement tactique ne doit pas restaurer l’énergie.');
+    $assert((int)$state['sides']['home']['lineup'][$preservedId]['cards'] === 1, 'Un changement tactique ne doit pas effacer les cartons.');
+    $controllerReflection = new ReflectionClass(Modules\Match\Controllers\MatchController::class);
+    $payloadMethod = $controllerReflection->getMethod('payload');
+    $payloadMethod->setAccessible(true);
+    $payload = $payloadMethod->invoke($controllerReflection->newInstanceWithoutConstructor(), $state);
+    $assert($payload['sides']['home']['tactic']['formation'] === '4-4-2', 'Le payload du direct doit exposer la formation à jour.');
+    $assert(count($payload['sides']['home']['lineup']) === 11 && count($payload['sides']['home']['substitutes']) === 6, 'Le payload doit synchroniser le onze et le banc sans rechargement.');
 
     $halftimeSeen = false;
     $guard = 0;

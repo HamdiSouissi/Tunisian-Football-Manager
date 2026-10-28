@@ -135,8 +135,10 @@ final class MatchService
                 throw new RuntimeException('Modification impossible.');
             }
             $side = $this->userSide($context, $fixture);
-            $input['lineup'] = $state['sides'][$side]['tactic']['lineup'];
-            $input['substitutes'] = $state['sides'][$side]['tactic']['substitutes'];
+            $currentTactic = $state['sides'][$side]['tactic'];
+            $input = array_merge($currentTactic, $input);
+            $input['lineup'] = $this->tactics->remapLineup($currentTactic['lineup'], (string)$input['formation']);
+            $input['substitutes'] = $currentTactic['substitutes'];
             $this->tactics->save($context->saveId(), $context->clubId(), $input, $fixtureId);
             $tactic = $this->tactics->forFixture($context->saveId(), $context->clubId(), $fixtureId);
             $state['new_events'] = [];

@@ -97,6 +97,98 @@ try {
         $assertSame(true, str_contains($source, $expectedSql), 'Identifiant current_date non échappé dans ' . $file . '.');
     }
 
+    // L'avancement utilise une opération DateTimeImmutable disponible en PHP 8.1.
+    $loopReflection = new ReflectionClass(App\Services\GameLoopService::class);
+    $nextDate = $loopReflection->getMethod('nextDate');
+    $nextDate->setAccessible(true);
+    $loop = $loopReflection->newInstanceWithoutConstructor();
+    $assertSame('2026-08-01', $nextDate->invoke($loop, '2026-07-31'), 'Le passage au mois suivant est incorrect.');
+    $assertSame('2028-02-29', $nextDate->invoke($loop, '2028-02-28'), 'Le passage par une année bissextile est incorrect.');
+
+    // PDO natif n'autorise pas deux occurrences d'un même paramètre nommé dans une requête.
+    $literalPattern = <<<'REGEX'
+~'(?:\\.|[^'\\])*'~s
+REGEX;
+    foreach (['app', 'modules'] as $directory) {
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path($directory), FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            if (!$file instanceof SplFileInfo || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $source = (string)file_get_contents($file->getPathname());
+            preg_match_all($literalPattern, $source, $literals);
+            foreach ($literals[0] as $literal) {
+                if (preg_match('/\b(?:SELECT|UPDATE|INSERT|DELETE)\b/i', $literal) !== 1) {
+                    continue;
+                }
+                preg_match_all('/(?<!:):([a-zA-Z_][a-zA-Z0-9_]*)/', $literal, $parameters);
+                foreach (array_count_values($parameters[1]) as $parameter => $occurrences) {
+                    $assertSame(false, $occurrences > 1, 'Paramètre PDO dupliqué :' . $parameter . ' dans ' . $file->getPathname() . '.');
+                }
+            }
+        }
+    }
+
+    // Les portraits sont déterministes, distincts et ne réinjectent aucune donnée HTML.
+    $portraitGenerator = new App\Services\PlayerPortrait();
+    $portraitPlayer = ['id' => 42, 'first_name' => 'Aymen', 'last_name' => 'Ben Salem', 'birth_date' => '2002-04-10', 'primary_position' => 'ST'];
+    $portrait = $portraitGenerator->render($portraitPlayer, 'sm');
+    $assertSame($portrait, $portraitGenerator->render($portraitPlayer, 'sm'), 'Le portrait doit rester stable entre deux rendus.');
+    $otherPortrait = $portraitGenerator->render([...$portraitPlayer, 'id' => 43], 'sm');
+    $assertSame(false, $portrait === $otherPortrait, 'Deux joueurs doivent recevoir des portraits distincts.');
+    $assertSame(true, str_contains($portrait, '<svg') && str_contains($portrait, 'role="img"'), 'Le portrait SVG accessible est incomplet.');
+    $unsafePortrait = $portraitGenerator->render([...$portraitPlayer, 'first_name' => '<Test>', 'club_color' => '\"><script>alert(1)</script>']);
+    $assertSame(true, str_contains($unsafePortrait, '&lt;Test&gt;') && !str_contains($unsafePortrait, '<script>'), 'Le portrait doit échapper les données du joueur.');
+
+    // La page Finances doit fonctionner avant la première écriture comptable.
+    $renderFinances = static function (array $monthly): string {
+        $club = ['balance' => 1000, 'wage_budget' => 500, 'transfer_budget' => 800, 'board_confidence' => 60];
+        $totals = ['income' => 0, 'expense' => 0];
+        $weeklyWages = 0;
+        $ledger = [];
+        ob_start();
+        try {
+            include base_path('modules/Finances/views/index.php');
+            return (string)ob_get_clean();
+        } catch (Throwable $exception) {
+            ob_end_clean();
+            throw $exception;
+        }
+    };
+    $emptyFinances = $renderFinances([]);
+    $assertSame(true, str_contains($emptyFinances, 'Les premières opérations apparaîtront'), 'La vue Finances vide doit afficher son état initial.');
+    $filledFinances = $renderFinances([['month' => '2026-07', 'net' => -250], ['month' => '2026-08', 'net' => 500]]);
+    $assertSame(true, str_contains($filledFinances, '2026-08') && str_contains($filledFinances, '+500 TND'), 'Le graphique Finances doit rendre les flux mensuels.');
+
+    // La fiche enrichie est rendue avec un joueur complet, sans accès SQL.
+    $context = new class { public function saveId(): int { return 1; } };
+    $save = ['current_date' => '2026-07-01'];
+    $player = array_merge([
+        'id' => 42, 'first_name' => 'Aymen', 'last_name' => 'Ben Salem', 'birth_date' => '2002-04-10',
+        'nationality' => 'Tunisia', 'primary_position' => 'ST', 'secondary_positions' => '["AMC"]',
+        'preferred_foot' => 'left', 'height_cm' => 182, 'weight_kg' => 76, 'overall_rating' => 68,
+        'potential' => 75, 'market_value' => 250000, 'contract_salary' => 2200,
+        'contract_starts' => '2025-07-01', 'contract_ends' => '2028-06-30', 'squad_role' => 'key_player',
+        'release_clause' => 500000, 'form' => 65, 'morale' => 75, 'fatigue' => 12,
+        'injury_type' => null, 'injury_until' => null, 'club_name' => 'Espérance de Tunis',
+        'club_slug' => 'esperance-de-tunis', 'club_color' => '#d43f55', 'club_secondary_color' => '#f5f7f6',
+    ], array_fill_keys(App\Services\PlayerFactory::ATTRIBUTES, 65));
+    $attributes = App\Services\PlayerFactory::ATTRIBUTES;
+    $radar = ['Technique' => 65, 'Mental' => 65, 'Physique' => 65, 'Défense' => 65, 'Attaque' => 65, 'Gardien' => 65];
+    $history = [];
+    $progress = [];
+    $career = ['goals' => 3, 'assists' => 2, 'yellow_cards' => 1, 'red_cards' => 0, 'injuries' => 0];
+    ob_start();
+    try {
+        include base_path('modules/Squad/views/show.php');
+        $playerPage = (string)ob_get_clean();
+    } catch (Throwable $exception) {
+        ob_end_clean();
+        throw $exception;
+    }
+    $assertSame(true, str_contains($playerPage, '<svg') && str_contains($playerPage, 'Statistiques de carrière'), 'La fiche joueur enrichie doit être rendue avec son portrait.');
+    $assertSame(true, str_contains($playerPage, 'Joueur cadre') && str_contains($playerPage, 'Passes décisives'), 'Le contrat et les statistiques du joueur sont incomplets.');
+
     // Le middleware accepte un jeton d'en-tête et rejette une modification invalide.
     $sessionPath = sys_get_temp_dir() . '/tfm-smoke-' . getmypid();
     $session = new Session([

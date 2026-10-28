@@ -19,6 +19,15 @@ final class TacticService
         '4-1-4-1' => ['GK','DL','DC','DC','DR','MDC','ML','MC','MC','MR','ST'],
     ];
 
+    public const FORMATION_COORDINATES = [
+        '4-4-2' => [[50,88],[15,66],[38,68],[62,68],[85,66],[14,42],[38,46],[62,46],[86,42],[35,18],[65,18]],
+        '4-3-3' => [[50,88],[15,66],[38,68],[62,68],[85,66],[50,54],[32,40],[68,40],[16,20],[84,20],[50,14]],
+        '4-2-3-1' => [[50,88],[15,66],[38,68],[62,68],[85,66],[36,52],[64,52],[16,31],[50,34],[84,31],[50,13]],
+        '3-5-2' => [[50,88],[27,67],[50,70],[73,67],[10,42],[32,47],[50,40],[68,47],[90,42],[35,16],[65,16]],
+        '5-3-2' => [[50,88],[10,52],[27,68],[50,71],[73,68],[90,52],[30,42],[50,47],[70,42],[35,16],[65,16]],
+        '4-1-4-1' => [[50,88],[15,66],[38,68],[62,68],[85,66],[50,53],[14,35],[36,39],[64,39],[86,35],[50,13]],
+    ];
+
     public function __construct(private readonly Database $database, private readonly PlayerRepository $players)
     {
     }
@@ -96,6 +105,26 @@ final class TacticService
             ['save_id' => $saveId, 'club_id' => $clubId, 'fixture_id' => $fixtureId]
         );
         return $tactic !== null ? $this->decode($tactic) : $this->getDefault($saveId, $clubId);
+    }
+
+    /** Conserve les onze joueurs tout en appliquant réellement les postes de la nouvelle structure. */
+    public function remapLineup(array $lineup, string $formation): array
+    {
+        if (!isset(self::FORMATIONS[$formation], self::FORMATION_COORDINATES[$formation])) {
+            throw new ValidationException(['formation' => 'Formation inconnue.']);
+        }
+        if (count($lineup) !== 11) {
+            throw new ValidationException(['lineup' => 'Exactement 11 titulaires sont requis.']);
+        }
+
+        $remapped = [];
+        foreach (array_values($lineup) as $index => $entry) {
+            $entry['slot'] = $index;
+            $entry['position'] = self::FORMATIONS[$formation][$index];
+            [$entry['x'], $entry['y']] = self::FORMATION_COORDINATES[$formation][$index];
+            $remapped[] = $entry;
+        }
+        return $remapped;
     }
 
     public function save(int $saveId, int $clubId, array $input, ?int $fixtureId = null): int

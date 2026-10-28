@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Application;
+use App\Core\ErrorHandler;
 use App\Core\Response;
 use App\Core\View;
 use App\Security\ValidationException;
@@ -45,7 +46,7 @@ abstract class Controller
         if ($exception instanceof RuntimeException && !$exception instanceof PDOException) {
             return $exception->getMessage();
         }
-        error_log((string)$exception);
+        $this->app->make(ErrorHandler::class)->report($exception);
         return 'Une erreur technique est survenue. Veuillez réessayer.';
     }
 }

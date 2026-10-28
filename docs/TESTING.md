@@ -10,10 +10,11 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 
 | Vérification | Résultat |
 |---|---|
-| Analyse syntaxique PHP avec `TOKEN_PARSE` | **127 fichiers, 0 erreur** |
+| Analyse syntaxique PHP avec `TOKEN_PARSE` | **128 fichiers, 0 erreur** |
 | `tests/smoke.php` | **Smoke tests : OK** |
 | `tests/engine.php` | **12 exécutions consécutives : Tests moteur, calendrier et IA : OK** |
 | Assets des clubs | **32/32 slugs couverts, 32 PNG valides en 256 × 256** |
+| Portraits générés | **Déterminisme, variante et échappement testés ; six variantes converties en PNG et inspectées** |
 | `node --check` sur les cinq fichiers JS | **OK** |
 | Équilibre des accolades CSS | **OK** |
 | `git diff --check` | **OK** |
@@ -26,6 +27,11 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - dispatcher, motifs génériques et priorités ;
 - découpage des **27 instructions** de migration ;
 - régression MySQL : `` `current_date` `` reste échappé dans les quatre requêtes de création/lecture/avancement/rollover ;
+- avancement d’une date avec changement de mois et année bissextile, sans l’appel inexistant `DateTimeImmutable::addDay()` ;
+- détection des paramètres nommés dupliqués dans les littéraux SQL, incompatibles avec les requêtes PDO natives ;
+- rendu de la vue Finances sans aucune transaction puis avec des flux mensuels positifs et négatifs ;
+- portraits SVG déterministes, distincts selon le joueur, accessibles et échappés face aux données HTML invalides ;
+- rendu complet de la fiche joueur avec portrait, contrat et statistiques de carrière ;
 - CSRF par en-tête et rejet d’un jeton invalide ;
 - route `/health`, contraintes de paramètres et 404 ;
 - pages invitées `/login` et `/register`, redirections de `/` et `/saves` ;
@@ -38,12 +44,20 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - initialisation de deux équipes et calcul des forces ;
 - impact mesuré des rôles/consignes sur l’attaque et le milieu ;
 - cinq minutes puis remplacement, entrée/sortie et compteur ;
-- changement de mentalité et pressing en direct ;
+- changement de mentalité, pressing et formation en direct avec réattribution des onze postes ;
+- conservation des joueurs, de l’énergie et des cartons après un ajustement tactique ;
+- payload du direct exposant la formation, le onze et le banc à jour pour une synchronisation sans rechargement ;
 - déroulement jusqu’à 90 minutes avec mi-temps à 45 ;
 - possession cumulée sur 90 minutes ;
 - égalité entre les buts du score et les événements de but ;
 - 240 rencontres pour une division de 16 clubs, 30 matchs par club, aucune confrontation dupliquée dans une phase et aucun match contre soi-même ;
 - acceptation/refus/contre-offre de l’IA et ouverture des fenêtres d’été/hiver.
+
+### Causes racines couvertes par cette série
+
+- **Finances sur une nouvelle sauvegarde** : `max()` recevait un entier unique lorsque le tableau mensuel était vide ; le calcul utilise maintenant toujours un tableau de valeurs.
+- **+1 jour / Continuer** : l’appel inexistant `DateTimeImmutable::addDay()` est remplacé par `modify('+1 day')`, et la détection d’un direct utilise deux paramètres PDO distincts pour le club domicile/extérieur.
+- **Diagnostic ultérieur** : les exceptions techniques interceptées par les contrôleurs sont maintenant journalisées dans `storage/logs/app.log`, sans exposer les détails sensibles à l’utilisateur.
 
 ## Non exécutés dans cet environnement
 
@@ -73,13 +87,13 @@ Le runtime WebAssembly sert uniquement aux tests sans base ; il n’est pas un s
 
 1. Créer une carrière en Ligue 1 puis une autre en Ligue 2. Rejouer explicitement le parcours avec **Olympique de Béja** et vérifier que le seed ne produit plus l’erreur PDO 1064 sur `current_date`.
 2. Pour chaque `save_id`, contrôler : 2 ligues, 32 clubs, 716 joueurs, 480 fixtures, 32 tactiques et 32 lignes de standings.
-3. Ouvrir dashboard, effectif, fiche joueur, tactique, calendrier, classement, entraînement, transferts, finances, club, staff et messagerie.
-4. Vérifier l’absence de warning PHP, de requête sans résultat inattendu et de contenu non échappé.
+3. Ouvrir dashboard, effectif, fiche joueur, tactique, calendrier, classement, entraînement, transferts, finances, club, staff et messagerie. Ouvrir notamment **Finances avant toute opération** et vérifier les portraits de plusieurs joueurs ainsi que leurs statistiques de carrière.
+4. Vérifier l’absence de warning PHP, de requête sans résultat inattendu et de contenu non échappé. Tester **+1 jour** et **Continuer**, y compris un passage de fin de mois ; en cas d’erreur, consulter `storage/logs/app.log`.
 
 ### 3. Tactique et match
 
 1. Permuter deux titulaires, déplacer un remplaçant, changer formation, rôle, consigne et style ; enregistrer puis recharger.
-2. À la date du match, démarrer le direct, jouer jusqu’à la mi-temps, effectuer un remplacement et modifier les consignes.
+2. À la date du match, démarrer le direct, jouer jusqu’à la mi-temps, effectuer un remplacement, changer de formation et modifier les consignes. Vérifier la mise à jour du onze, du banc, des postes et des commentaires **sans rechargement**, puis la conservation de la fatigue et des cartons.
 3. Reprendre, recharger la page au cours du match et terminer les 90 minutes.
 4. Contrôler score/événements/statistiques, classement, fatigue, moral, billetterie et message de résultat.
 5. Vérifier qu’un match terminé ne peut pas être finalisé une seconde fois et que Continuer est bloqué pendant un direct.

@@ -85,7 +85,8 @@ final class ErrorHandler
             . '</pre></body></html>';
     }
 
-    private function report(Throwable $exception): void
+    /** Journalise aussi les exceptions interceptées par les contrôleurs. */
+    public function report(Throwable $exception): void
     {
         if (!is_dir($this->logPath)) {
             @mkdir($this->logPath, 0775, true);

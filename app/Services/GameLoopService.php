@@ -28,12 +28,12 @@ final class GameLoopService
     {
         if($days<1||$days>7)throw new ValidationException(['days'=>'Vous pouvez avancer de un à sept jours à la fois.']);
         if($context->save()['status']!=='active')throw new ValidationException(['save'=>'Cette carrière est archivée ou terminée.']);
-        $live=$this->database->selectOne('SELECT id FROM fixtures WHERE save_id=:save_id AND (home_club_id=:club_id OR away_club_id=:club_id) AND status IN (\'live\',\'halftime\') LIMIT 1',['save_id'=>$context->saveId(),'club_id'=>$context->clubId()]);
+        $live=$this->database->selectOne('SELECT id FROM fixtures WHERE save_id=:save_id AND (home_club_id=:home_club_id OR away_club_id=:away_club_id) AND status IN (\'live\',\'halftime\') LIMIT 1',['save_id'=>$context->saveId(),'home_club_id'=>$context->clubId(),'away_club_id'=>$context->clubId()]);
         if($live)throw new ValidationException(['match'=>'Terminez le match en cours avant de continuer.']);
         $totals=['days'=>0,'matches'=>0,'training'=>0,'transfers'=>0,'season'=>0];
         for($i=0;$i<$days;$i++){
             if($context->save()['status']!=='active')break;
-            $date=(new DateTimeImmutable((string)$context->save()['current_date']))->addDay()->format('Y-m-d');
+            $date=$this->nextDate((string)$context->save()['current_date']);
             $this->database->transaction(function()use($context,$date,&$totals):void{
                 $saveId=$context->saveId();
                 $this->database->execute('UPDATE saves SET `current_date`=:date WHERE id=:save_id AND status=\'active\'',['date'=>$date,'save_id'=>$saveId]);
@@ -56,5 +56,11 @@ final class GameLoopService
             $context->refresh();
         }
         return $totals;
+    }
+
+    /** DateTimeImmutable ne fournit pas de méthode addDay(). */
+    private function nextDate(string $currentDate): string
+    {
+        return (new DateTimeImmutable($currentDate))->modify('+1 day')->format('Y-m-d');
     }
 }
