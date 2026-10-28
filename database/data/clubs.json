@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Ligue Professionnelle 1",
+    "short_name": "Ligue 1",
+    "slug": "ligue-1",
+    "level": 1,
+    "clubs": [
+      {"name":"Espérance Sportive de Tunis","short_name":"EST","slug":"esperance-de-tunis","city":"Tunis","stadium":"Stade Hammadi Agrebi","capacity":60000,"primary":"#c8102e","secondary":"#f8fafc","reputation":94},
+      {"name":"Club Africain","short_name":"CA","slug":"club-africain","city":"Tunis","stadium":"Stade Hammadi Agrebi","capacity":60000,"primary":"#dc2626","secondary":"#f8fafc","reputation":90},
+      {"name":"Étoile Sportive du Sahel","short_name":"ESS","slug":"etoile-du-sahel","city":"Sousse","stadium":"Stade Olympique de Sousse","capacity":28000,"primary":"#dc2626","secondary":"#f8fafc","reputation":89},
+      {"name":"Club Sportif Sfaxien","short_name":"CSS","slug":"cs-sfaxien","city":"Sfax","stadium":"Stade Taïeb Mhiri","capacity":22000,"primary":"#111827","secondary":"#f8fafc","reputation":87},
+      {"name":"Union Sportive Monastirienne","short_name":"USM","slug":"us-monastir","city":"Monastir","stadium":"Stade Mustapha Ben Jannet","capacity":20000,"primary":"#2563eb","secondary":"#f8fafc","reputation":84},
+      {"name":"Club Athlétique Bizertin","short_name":"CAB","slug":"ca-bizertin","city":"Bizerte","stadium":"Stade du 15 Octobre","capacity":20000,"primary":"#facc15","secondary":"#111827","reputation":82},
+      {"name":"Stade Tunisien","short_name":"ST","slug":"stade-tunisien","city":"Tunis","stadium":"Stade Chedly Zouiten","capacity":18000,"primary":"#dc2626","secondary":"#16a34a","reputation":78},
+      {"name":"Union Sportive de Ben Guerdane","short_name":"USBG","slug":"us-ben-guerdane","city":"Ben Guerdane","stadium":"Stade du 7 Mars","capacity":10000,"primary":"#facc15","secondary":"#111827","reputation":72},
+      {"name":"Avenir Sportif de Soliman","short_name":"ASS","slug":"as-soliman","city":"Soliman","stadium":"Stade Municipal de Soliman","capacity":7000,"primary":"#16a34a","secondary":"#f8fafc","reputation":68},
+      {"name":"Olympique de Béja","short_name":"OB","slug":"olympique-beja","city":"Béja","stadium":"Stade Boujemaa Kmiti","capacity":15000,"primary":"#dc2626","secondary":"#f8fafc","reputation":67},
+      {"name":"Jeunesse Sportive Omrane","short_name":"JSO","slug":"js-omrane","city":"Tunis","stadium":"Stade Chedly Zouiten","capacity":18000,"primary":"#2563eb","secondary":"#f8fafc","reputation":65},
+      {"name":"Union Sportive Tataouine","short_name":"UST","slug":"us-tataouine","city":"Tataouine","stadium":"Stade Néjib Khattab","capacity":5000,"primary":"#2563eb","secondary":"#facc15","reputation":63},
+      {"name":"Étoile Sportive de Métlaoui","short_name":"ESM","slug":"es-metlaoui","city":"Métlaoui","stadium":"Stade Municipal de Métlaoui","capacity":6000,"primary":"#dc2626","secondary":"#111827","reputation":62},
+      {"name":"Avenir Sportif de Zarzis","short_name":"ASZ","slug":"as-zarzis","city":"Zarzis","stadium":"Stade Jlidi","capacity":8000,"primary":"#eab308","secondary":"#111827","reputation":61},
+      {"name":"Club Sportif de Msaken","short_name":"CSM","slug":"cs-msaken","city":"Msaken","stadium":"Stade Municipal de Msaken","capacity":5000,"primary":"#16a34a","secondary":"#f8fafc","reputation":58},
+      {"name":"Stade Gabésien","short_name":"SG","slug":"stade-gabesien","city":"Gabès","stadium":"Stade Municipal de Gabès","capacity":15000,"primary":"#dc2626","secondary":"#f8fafc","reputation":60}
+    ]
+  },
+  {
+    "name": "Ligue Professionnelle 2",
+    "short_name": "Ligue 2",
+    "slug": "ligue-2",
+    "level": 2,
+    "clubs": [
+      {"name":"Club Sportif de Hammam-Lif","short_name":"CSHL","slug":"cs-hammam-lif","city":"Hammam-Lif","stadium":"Stade Bou Kornine","capacity":8000,"primary":"#16a34a","secondary":"#f8fafc","reputation":64},
+      {"name":"Avenir Sportif de La Marsa","short_name":"ASM","slug":"as-marsa","city":"La Marsa","stadium":"Stade Abdelaziz Chtioui","capacity":6000,"primary":"#facc15","secondary":"#16a34a","reputation":63},
+      {"name":"Club Olympique des Transports","short_name":"COT","slug":"co-transports","city":"Tunis","stadium":"Stade Ali Belhouane","capacity":6000,"primary":"#2563eb","secondary":"#f8fafc","reputation":57},
+      {"name":"El Makarem de Mahdia","short_name":"EMM","slug":"el-makarem-mahdia","city":"Mahdia","stadium":"Stade Ahmed Khouaja","capacity":8000,"primary":"#2563eb","secondary":"#f8fafc","reputation":55},
+      {"name":"Sporting Club de Moknine","short_name":"SCM","slug":"sc-moknine","city":"Moknine","stadium":"Stade Municipal de Moknine","capacity":6000,"primary":"#dc2626","secondary":"#f8fafc","reputation":53},
+      {"name":"Océano Club de Kerkennah","short_name":"OCK","slug":"oc-kerkennah","city":"Kerkennah","stadium":"Stade Municipal de Kerkennah","capacity":5000,"primary":"#0ea5e9","secondary":"#f8fafc","reputation":50},
+      {"name":"Jendouba Sport","short_name":"JS","slug":"jendouba-sport","city":"Jendouba","stadium":"Stade Municipal de Jendouba","capacity":8000,"primary":"#16a34a","secondary":"#facc15","reputation":54},
+      {"name":"Avenir Sportif de Kasserine","short_name":"ASK","slug":"as-kasserine","city":"Kasserine","stadium":"Stade de Kasserine","capacity":8000,"primary":"#16a34a","secondary":"#f8fafc","reputation":56},
+      {"name":"Club Athlétique de Kairouan","short_name":"CAK","slug":"ca-kairouan","city":"Kairouan","stadium":"Stade Hamda Laouani","capacity":12000,"primary":"#dc2626","secondary":"#f8fafc","reputation":58},
+      {"name":"Club Sportif de Korba","short_name":"CSK","slug":"cs-korba","city":"Korba","stadium":"Stade Municipal de Korba","capacity":5000,"primary":"#16a34a","secondary":"#f8fafc","reputation":49},
+      {"name":"Football Club de Jérissa","short_name":"FCJ","slug":"fc-jerissa","city":"Jérissa","stadium":"Stade Municipal de Jérissa","capacity":5000,"primary":"#7c3aed","secondary":"#f8fafc","reputation":45},
+      {"name":"Croissant Sportif Chebbien","short_name":"CSC","slug":"cs-chebba","city":"Chebba","stadium":"Stade de Chebba","capacity":5000,"primary":"#dc2626","secondary":"#f8fafc","reputation":51},
+      {"name":"Avenir Sportif de Gabès","short_name":"ASG","slug":"as-gabes","city":"Gabès","stadium":"Stade Municipal de Gabès","capacity":15000,"primary":"#eab308","secondary":"#111827","reputation":55},
+      {"name":"Club Sportif de Sakiet Ezzit","short_name":"CSSE","slug":"cs-sakiet-ezzit","city":"Sakiet Ezzit","stadium":"Stade Municipal de Sakiet Ezzit","capacity":6000,"primary":"#2563eb","secondary":"#f8fafc","reputation":44},
+      {"name":"Étoile Sportive de Radès","short_name":"ESR","slug":"es-rades","city":"Radès","stadium":"Stade Hedi Enneifer","capacity":10000,"primary":"#2563eb","secondary":"#f8fafc","reputation":48},
+      {"name":"Grombalia Sports","short_name":"GS","slug":"grombalia-sports","city":"Grombalia","stadium":"Stade Municipal de Grombalia","capacity":5000,"primary":"#dc2626","secondary":"#f8fafc","reputation":46}
+    ]
+  }
+]

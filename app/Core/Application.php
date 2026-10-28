@@ -10,6 +10,7 @@ use App\Database\Migrator;
 use App\Events\EventDispatcher;
 use App\Middleware\CsrfMiddleware;
 use App\Security\Csrf;
+use App\Services\GameContext;
 use App\Session\Session;
 use App\Translation\Translator;
 
@@ -73,6 +74,11 @@ final class Application
         });
 
         $this->container->singleton(Csrf::class, fn (): Csrf => new Csrf(
+            $this->container->get(Session::class)
+        ));
+
+        $this->container->singleton(GameContext::class, fn (): GameContext => new GameContext(
+            $this->container->get(Database::class),
             $this->container->get(Session::class)
         ));
 

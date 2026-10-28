@@ -7,6 +7,6 @@ use App\Core\Router;
 use Modules\System\Controllers\StatusController;
 
 return static function (Router $router, Application $app): void {
-    $router->get('/', [StatusController::class, 'index']);
+    $router->get('/system', [StatusController::class, 'index']);
     $router->get('/health', [StatusController::class, 'health']);
 };

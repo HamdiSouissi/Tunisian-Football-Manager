@@ -1,39 +1,39 @@
 # Tunisian Football Manager
 
-Application web de simulation de management de football tunisien, développée en **PHP 8.1+ natif**, sans framework ni dépendance obligatoire.
+Jeu web de gestion d’un club de football tunisien, écrit en **PHP 8.1+ natif**, sans framework ni dépendance obligatoire. L’interface utilise HTML5, CSS3 et JavaScript ES6+ ; aucun build front n’est nécessaire.
 
-> **Livraison actuelle : étape 1/8 — architecture, noyau et schéma SQL.** Les données de clubs, l'authentification et les mécaniques de jeu sont volontairement planifiés dans les étapes suivantes.
+> **État de validation :** les tests sans base (noyau, autowiring, routes invitées, CSRF, datasets, moteur de match et calendrier) sont exécutés et passent. L’environnement de développement de cette livraison ne disposait pas de serveur MySQL/MariaDB ni de navigateur : les parcours persistants complets et l’affichage navigateur doivent être vérifiés sur votre installation avant de considérer ces parcours comme validés. Voir [docs/TESTING.md](docs/TESTING.md).
 
-## Socle disponible
+## Fonctionnalités implémentées
 
-- Front controller `public/index.php`, URLs propres Apache et routeur du serveur PHP intégré.
-- Autoload PSR-4 maison : `App\` → `app/`, `Modules\` → `modules/`.
-- Routeur GET/POST/PUT/PATCH/DELETE, paramètres typés par expressions régulières et middlewares.
-- Conteneur de services avec autowiring, contrôleurs de base et vues PHP modulaires.
-- PDO MySQL avec requêtes préparées et transactions.
-- Migrations SQL versionnées, journalisées par lot et extensibles par les modules.
-- Découverte automatique des modules via `modules/<Nom>/module.php`.
-- `EventDispatcher` synchrone avec priorités et motifs (`match.*`).
-- Sessions sécurisées, protection CSRF globale et échappement HTML via `e()`.
-- Traductions initiales français, arabe et anglais.
-- Schéma complet pour les utilisateurs, parties, clubs, joueurs, matchs, tactiques, entraînements, transferts, finances et messages.
+- **Carrières** : inscription, connexion, déconnexion, plusieurs sauvegardes, archivage, quatre difficultés et isolation stricte par `save_id`.
+- **Monde tunisien** : deux divisions de 16 clubs, 22 joueurs par club, 12 joueurs libres, contrats, staff, tactiques, objectifs et 480 rencontres aller-retour.
+- **Centre de commandement** : prochain match, classement, objectif et confiance de la direction, finances, joueurs en vue, résultats et messagerie.
+- **Effectif** : tableau dense triable/filtrable, forme, moral, fatigue, blessures, valeur, fiche détaillée et radar d’attributs sans bibliothèque externe.
+- **Tactique** : six formations, onze titulaires, sept remplaçants, glisser-déposer et sélection au clic, mentalité, style, pressing, ligne, tempo, largeur, rôles et consignes individuelles interprétés par le moteur.
+- **Matchs** : moteur minute par minute, occasions, buts, passes décisives, cartons, blessures, possession, fatigue, avantage domicile, direct interactif, lecture automatique, mi-temps, cinq remplacements et ajustements tactiques.
+- **Championnat** : calendrier, résultats, statistiques, classement recalculé, forme et boucle d’avancement d’un à sept jours.
+- **Entraînement** : programme collectif hebdomadaire, suivi individuel, intensité, qualité du staff, progression selon âge/potentiel, fatigue, blessures et rapports persistants.
+- **Mercato** : recherche multicritère, achats, ventes, joueurs libres, négociations salariales, offres, contre-offres, prêts et retours, fenêtres de transferts, shortlist, historique et actions des clubs IA.
+- **Finances et direction** : billetterie, salaires joueurs/staff, sponsors, droits TV, opérations de transfert, primes à la signature, budget, livre comptable, objectifs et licenciement lorsque la confiance tombe à zéro.
+- **Fin de saison** : bilan des objectifs, promotions/relégations, expiration des contrats, retraites, jeunes du centre de formation, nouveaux budgets, tactiques et calendrier de la saison suivante.
 
 ## Prérequis
 
-- PHP **8.1 ou supérieur** avec `pdo_mysql`, `session` et `json` ;
+- PHP **8.1 ou supérieur** avec `pdo_mysql`, `session`, `json` et `openssl` ;
 - MySQL 8+ ou MariaDB 10.4+ ;
-- Apache avec `mod_rewrite` pour la production, ou le serveur PHP intégré en développement ;
-- aucun Composer ni build JavaScript n'est nécessaire.
+- Apache avec `mod_rewrite`, ou le serveur PHP intégré en développement ;
+- aucun Composer, npm ou build JavaScript n’est requis pour exploiter l’application.
 
 ## Installation
 
-### 1. Configurer l'environnement
+### 1. Créer la base et configurer l’environnement
 
 ```bash
 cp .env.example .env
 ```
 
-Renseigner les accès `DB_*`. Créer préalablement la base et un utilisateur dédié, par exemple :
+Exemple de base et d’utilisateur dédié :
 
 ```sql
 CREATE DATABASE tunisian_football_manager
@@ -42,7 +42,16 @@ CREATE USER 'tfm'@'localhost' IDENTIFIED BY 'un-mot-de-passe-fort';
 GRANT ALL ON tunisian_football_manager.* TO 'tfm'@'localhost';
 ```
 
-Ne jamais committer `.env`. En production : `APP_DEBUG=false` et, sous HTTPS, `SESSION_SECURE_COOKIE=true`. Les répertoires `storage/logs` et `storage/sessions` doivent être accessibles en écriture par PHP ; `SESSION_SAVE_PATH` permet de choisir un autre chemin absolu pour les sessions.
+Renseigner ensuite `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` et `DB_PASSWORD`. `DB_SOCKET` peut remplacer la connexion TCP sur certains hébergements.
+
+Ne jamais committer `.env`. En production :
+
+```dotenv
+APP_DEBUG=false
+SESSION_SECURE_COOKIE=true
+```
+
+`SESSION_SECURE_COOKIE=true` suppose HTTPS. Les répertoires `storage/logs` et `storage/sessions` doivent être accessibles en écriture par PHP. `SESSION_SAVE_PATH` permet de définir un autre chemin absolu.
 
 ### 2. Exécuter les migrations
 
@@ -51,91 +60,120 @@ php bin/migrate
 php bin/migrate status
 ```
 
-La table `schema_migrations` empêche toute réexécution. Les migrations du noyau sont chargées avant celles des modules. Les DDL MySQL/MariaDB validant implicitement les transactions, une migration interrompue doit être inspectée avant toute nouvelle tentative.
+Les migrations créent le schéma, les clés étrangères, les index et l’état persistant des matchs. La table `schema_migrations` empêche leur réexécution. Les DDL MySQL/MariaDB validant implicitement les transactions, une migration interrompue doit être inspectée avant une nouvelle tentative.
 
-### 3. Démarrer l'application
-
-Avec le serveur intégré :
+### 3. Démarrer l’application
 
 ```bash
 php -S 0.0.0.0:8000 -t public public/router.php
 ```
 
-Puis ouvrir `http://localhost:8000`. La page d'accueil de cette étape ne nécessite pas de connexion à la base. `GET /health` fournit une réponse JSON de diagnostic.
+Ouvrir `http://localhost:8000`, créer un compte puis une carrière. La génération du monde est transactionnelle et peut prendre quelques secondes.
 
-Avec Apache, le **DocumentRoot doit pointer vers `public/`** ; ne jamais exposer la racine du projet.
+Avec Apache, le **DocumentRoot doit pointer vers `public/`**. Ne jamais exposer la racine du projet, `.env`, `storage/` ou `database/`.
 
-## Vérifications
+### 4. Vérifier le premier seed
+
+Dans la base nouvellement générée, pour une première sauvegarde sans autre partie dans le même monde :
+
+```sql
+SELECT COUNT(*) FROM clubs;          -- 32
+SELECT COUNT(*) FROM players;        -- 716 au seed initial
+SELECT COUNT(*) FROM fixtures;       -- 480
+SELECT COUNT(*) FROM leagues;        -- 2
+```
+
+Ces compteurs sont globaux à la base : avec plusieurs sauvegardes, filtrer avec `WHERE save_id = ...` et multiplier les valeurs initiales par le nombre de mondes créés.
+
+## Jouer
+
+1. **Effectif / Tactique** : vérifier le onze, les remplaçants et les consignes, puis enregistrer.
+2. **Continuer** : avancer d’un jour ou de sept jours. Les matchs du jour, l’entraînement du lundi, la récupération, les finances et les actions IA sont traités dans la boucle.
+3. **Match interactif** : depuis le dashboard ou le calendrier, ouvrir le match de votre club à sa date. Il peut être joué minute par minute au lieu d’être simulé automatiquement.
+4. **Entraînement** : modifier le programme avant lundi et consulter le rapport après application.
+5. **Mercato** : recruter pendant les fenêtres du 15 juin au 31 août et du 1er au 31 janvier.
+6. **Fin de saison** : après le 31 mai, continuer pour clôturer la saison et générer la suivante.
+
+Un match commencé en direct doit être terminé avant de poursuivre l’avancement du temps. Une carrière archivée ou terminée reste consultable mais ne peut plus avancer.
+
+## Tests et vérifications
 
 ```bash
-# Syntaxe de tous les fichiers PHP
+# Syntaxe PHP
 find app bootstrap config lang modules public tests -name '*.php' -print0 | xargs -0 -n1 php -l
 php -l bin/migrate
 
-# Smoke tests du conteneur, des hooks, du CSRF, des migrations et du routeur (sans base)
+# Noyau, autowiring, modules, CSRF, routes invitées, migrations et datasets
 php tests/smoke.php
+
+# Moteur minute par minute, rôles, remplacements, calendrier, IA et fenêtres
+php tests/engine.php
+
+# Syntaxe JavaScript si Node.js est disponible (non requis par l’application)
+for file in public/assets/js/*.js; do node --check "$file" || exit 1; done
 ```
+
+Le détail des vérifications réellement exécutées et des tests restant à faire sur MySQL/navigateur figure dans [docs/TESTING.md](docs/TESTING.md).
 
 ## Organisation
 
 ```text
 app/
-  Controllers/       Contrôleur abstrait, puis contrôleurs transverses
-  Contracts/         Interfaces du noyau et futurs contrats remplaçables
-  Core/              Application, routeur, HTTP, vues, modules, configuration
-  Database/          PDO et exécuteur de migrations
-  Events/            Événements et dispatcher
-  Middleware/        Middlewares HTTP
-  Models/            Modèles des prochaines étapes
-  Security/          CSRF et futurs composants de sécurité
-  Services/          Services métier à venir
-  Session/           Gestion sécurisée des sessions
-  Support/           Fonctions d'aide globales
-  Translation/       Chargeur de traductions
-bootstrap/           Amorçage et autoload
+  Contracts/         Interfaces remplaçables (moteur, IA, événements, modules)
+  Controllers/       Contrôleurs transverses et aides HTTP
+  Core/              Application, conteneur, routeur, vues, configuration
+  Database/          PDO et migrations
+  Engine/            Moteur de match sans dépendance HTTP/PDO
+  Events/            Dispatcher synchrone
+  Middleware/        Authentification, sauvegarde et CSRF
+  Models/            Repositories et requêtes de lecture
+  Security/          CSRF et validation
+  Services/          Seeding, boucle, matchs, entraînement, mercato, finances…
+  Session/           Sessions sécurisées
+  Support/           Helpers globaux
+bootstrap/           Amorçage et PSR-4 maison
+config/              Configuration applicative et équilibrage central
 bin/migrate          Commande CLI des migrations
-config/              Configuration centralisée
 database/
+  data/              Clubs, noms et joueurs libres
   migrations/        Schéma SQL versionné
-  seeders/           Seeders de l'étape 2
-  data/              Futures données JSON/CSV tunisiennes
-docs/                Architecture et guide d'extension
-lang/                fr.php, ar.php, en.php
 modules/
-  System/            Exemple minimal auto-enregistré et diagnostic HTTP
+  Auth/              Comptes et carrières
+  Game/              Dashboard, messagerie, club et staff
+  Squad/             Effectif et fiches joueurs
+  Tactics/           Éditeur tactique
+  Match/             Direct interactif
+  League/            Calendrier et classements
+  Training/          Programmes et rapports
+  Transfers/         Mercato et négociations
+  Finances/          Budgets et listeners financiers
+  System/            Diagnostic du noyau
 public/              Seul répertoire exposé au web
-storage/             Journaux, cache et sessions locaux
+storage/             Journaux, cache et sessions
+tests/                Smoke tests et tests du moteur
 ```
 
-## Schéma de données
+## Schéma et isolation
 
-| Migration | Tables |
+| Migration | Contenu principal |
 |---|---|
-| `001_create_identity_and_world_tables` | `users`, `saves`, `leagues`, `clubs`, `seasons`, `players`, `player_attributes`, `contracts`, `staff` |
-| `002_create_match_tables` | `fixtures`, `match_events`, `standings`, `tactics` |
-| `003_create_training_tables` | `training_plans`, `training_plan_players`, `training_reports`, `training_report_entries` |
-| `004_create_transfer_finance_and_message_tables` | `transfers`, `transfer_offers`, `loans`, `shortlisted_players`, `finances`, `board_objectives`, `messages`, `settings` |
+| `001_create_identity_and_world_tables` | utilisateurs, saves, ligues, clubs, saisons, joueurs, attributs, contrats, staff |
+| `002_create_match_tables` | fixtures, événements, standings, tactiques |
+| `003_create_training_tables` | plans, suivis individuels et rapports |
+| `004_create_transfer_finance_and_message_tables` | transferts, offres, prêts, shortlist, finances, objectifs, messages, paramètres |
+| `005_add_live_match_state` | état JSON reprenable du direct |
 
-Toutes les tables de simulation contiennent `save_id`. Toute requête métier devra filtrer explicitement sur cette clé en plus de l'identifiant technique. Les attributs sont conçus sur une échelle de 1 à 100 et les montants utilisent `DECIMAL`.
+Toutes les données de simulation portent `save_id`. Les repositories et services doivent toujours filtrer sur cette clé en plus de l’identifiant technique.
 
-## Conventions et sécurité
+## Conventions, sécurité et extension
 
-- code et noms de classes en anglais, commentaires en français, `strict_types=1` ;
-- requêtes préparées pour toute valeur dynamique ;
-- échappement de toute sortie dynamique avec `e()` ;
-- CSRF obligatoire sur les méthodes de modification, par champ `_token` ou en-tête `X-CSRF-Token` ;
-- régénération de l'identifiant de session prévue lors de l'authentification ;
-- secrets uniquement dans l'environnement, erreurs détaillées uniquement en mode debug.
+- classes et variables en anglais, commentaires en français, `strict_types=1` ;
+- PDO avec requêtes préparées natives et transactions ;
+- `password_hash` / `password_verify`, régénération de session à l’authentification ;
+- CSRF global sur toute méthode de modification, champ `_token` ou en-tête `X-CSRF-Token` ;
+- validation des entrées et échappement des sorties avec `e()` ;
+- paramètres d’équilibrage centralisés dans `config/game.php` ;
+- algorithmes remplaçables derrière `MatchEngineInterface` et `AIManagerInterface` ;
+- aucune logique de simulation dans les contrôleurs ou les vues.
 
-Voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) et [docs/EXTENDING.md](docs/EXTENDING.md).
-
-## Feuille de route
-
-1. **Architecture, noyau, schéma et migrations — cette livraison.**
-2. Authentification, création de parties et seeders tunisiens.
-3. Design system, tableau de bord, effectif et fiche joueur.
-4. Tactique, moteur de match, calendrier et classement.
-5. Entraînement et évolution.
-6. Mercato et IA des clubs.
-7. Finances, messagerie, objectifs et fin de saison.
-8. Équilibrage, tests approfondis et documentation finale.
+Guides : [architecture](docs/ARCHITECTURE.md), [extension des modules et moteurs](docs/EXTENDING.md), [validation](docs/TESTING.md).

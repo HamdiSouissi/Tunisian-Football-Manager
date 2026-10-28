@@ -57,6 +57,40 @@ if (!function_exists('__')) {
     }
 }
 
+if (!function_exists('format_money')) {
+    function format_money(mixed $value): string
+    {
+        return number_format((float) $value, 0, ',', ' ') . ' TND';
+    }
+}
+
+if (!function_exists('format_date')) {
+    function format_date(?string $date, string $format = 'd/m/Y'): string
+    {
+        if ($date === null || $date === '') {
+            return '—';
+        }
+        return date($format, strtotime($date));
+    }
+}
+
+if (!function_exists('excerpt')) {
+    function excerpt(string $text, int $length = 80): string
+    {
+        if (function_exists('mb_strimwidth')) {
+            return mb_strimwidth($text, 0, $length, '…');
+        }
+        return strlen($text) > $length ? substr($text, 0, $length - 1) . '…' : $text;
+    }
+}
+
+if (!function_exists('player_age')) {
+    function player_age(string $birthDate, ?string $referenceDate = null): int
+    {
+        return (int) ((new DateTimeImmutable($birthDate))->diff(new DateTimeImmutable($referenceDate ?? 'today'))->y);
+    }
+}
+
 if (!function_exists('csrf_token')) {
     function csrf_token(): string
     {

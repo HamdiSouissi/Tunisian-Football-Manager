@@ -7,6 +7,10 @@ namespace App\Controllers;
 use App\Core\Application;
 use App\Core\Response;
 use App\Core\View;
+use App\Security\ValidationException;
+use PDOException;
+use RuntimeException;
+use Throwable;
 
 /** Contrôleur de base : aucune logique métier, uniquement des aides HTTP. */
 abstract class Controller
@@ -31,5 +35,17 @@ abstract class Controller
     protected function redirect(string $url, int $status = 302): Response
     {
         return Response::redirect($url, $status);
+    }
+
+    protected function exceptionMessage(Throwable $exception): string
+    {
+        if ($exception instanceof ValidationException) {
+            return implode(' ', $exception->errors());
+        }
+        if ($exception instanceof RuntimeException && !$exception instanceof PDOException) {
+            return $exception->getMessage();
+        }
+        error_log((string)$exception);
+        return 'Une erreur technique est survenue. Veuillez réessayer.';
     }
 }

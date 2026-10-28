@@ -12,6 +12,9 @@ final class Request
     /** @var array<string, string> */
     private array $routeParameters = [];
 
+    /** @var array<string, mixed> */
+    private array $attributes = [];
+
     /**
      * @param array<string, mixed> $query
      * @param array<string, mixed> $body
@@ -140,5 +143,15 @@ final class Request
     public function setRouteParameters(array $parameters): void
     {
         $this->routeParameters = $parameters;
+    }
+
+    public function setAttribute(string $key, mixed $value): void
+    {
+        $this->attributes[$key] = $value;
+    }
+
+    public function attribute(string $key, mixed $default = null): mixed
+    {
+        return $this->attributes[$key] ?? $default;
     }
 }
