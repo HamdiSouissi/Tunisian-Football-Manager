@@ -110,6 +110,11 @@ try {
         $assertSame(true, str_contains($source, $expectedSql), 'Identifiant current_date non échappé dans ' . $file . '.');
     }
 
+    // Une colonne UNSIGNED ne doit jamais produire une soustraction négative avant GREATEST.
+    $recoverySource = (string)file_get_contents(base_path('app/Services/MoraleService.php'));
+    $assertSame(true, str_contains($recoverySource, 'GREATEST(0, CAST(fatigue AS SIGNED) - 7)'), 'La récupération de fatigue doit utiliser une soustraction signée.');
+    $assertSame(false, str_contains($recoverySource, 'GREATEST(0, fatigue - 7)'), 'La soustraction UNSIGNED fautive ne doit pas être réintroduite.');
+
     // L'avancement utilise une opération DateTimeImmutable disponible en PHP 8.1.
     $loopReflection = new ReflectionClass(App\Services\GameLoopService::class);
     $nextDate = $loopReflection->getMethod('nextDate');

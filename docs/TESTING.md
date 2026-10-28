@@ -29,6 +29,7 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - découpage des **27 instructions** de migration ;
 - régression MySQL : `` `current_date` `` reste échappé dans les quatre requêtes de création/lecture/avancement/rollover ;
 - avancement d’une date avec changement de mois et année bissextile, sans l’appel inexistant `DateTimeImmutable::addDay()` ;
+- récupération de fatigue avec une soustraction explicitement signée avant application de `GREATEST`, pour éviter le dépassement MySQL `22003` sur une colonne `UNSIGNED` ;
 - détection des paramètres nommés dupliqués dans les littéraux SQL, incompatibles avec les requêtes PDO natives ;
 - détail `PDOException` conservé avec `APP_DEBUG=true`, mais masqué avec `APP_DEBUG=false` ;
 - rendu de la vue Finances sans aucune transaction puis avec des flux mensuels positifs et négatifs ;
@@ -48,6 +49,7 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 - création d’une tactique par `INSERT`, puis second enregistrement par `UPDATE` avec les bindings réellement présents dans la requête ;
 - reconstruction automatique du onze lorsqu’un titulaire est blessé, chemin également utilisé par la simulation ;
 - **+1 jour** du 1er au 2 juillet avec mise à jour transactionnelle de la sauvegarde ;
+- récupération quotidienne de la fatigue aux limites `0`, `5`, `7` et `8`, avec résultats attendus `0`, `0`, `0` et `1` ;
 - **Continuer** sur sept jours, avec application d’un lundi d’entraînement ;
 - onze lignes de rapport hebdomadaire et écritures de salaires/sponsors ;
 - transfert IA avec contrat et deux écritures financières, plus une offre destinée au club dirigé pendant un avancement quotidien ;
@@ -71,6 +73,7 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 
 - **Finances sur une nouvelle sauvegarde** : `max()` recevait un entier unique lorsque le tableau mensuel était vide ; le calcul utilise maintenant toujours un tableau de valeurs.
 - **+1 jour / Continuer** : l’appel inexistant `DateTimeImmutable::addDay()` est remplacé par `modify('+1 day')`, et la détection d’un direct utilise deux paramètres PDO distincts pour le club domicile/extérieur.
+- **Récupération / SQLSTATE 22003** : `fatigue` est un `TINYINT UNSIGNED`. MySQL évaluait `fatigue - 7` avant `GREATEST(0, …)`, ce qui produisait une valeur intermédiaire négative pour une fatigue inférieure à 7. Le cast en `SIGNED` intervient maintenant avant la soustraction, puis le résultat est borné à zéro.
 - **Enregistrement tactique / HY093** : `club_id` et `fixture_id` étaient liés à un `UPDATE` qui ne déclarait pas ces paramètres ; ils sont retirés du seul tableau de bindings de cet `UPDATE`. Le même chemin est couvert lors d’une reconstruction automatique du onze.
 - **Diagnostic ultérieur** : les exceptions techniques interceptées par les contrôleurs sont journalisées dans `storage/logs/app.log`. Leur classe et leur message sont aussi visibles avec `APP_DEBUG=true`, sans exposer ces détails en production.
 

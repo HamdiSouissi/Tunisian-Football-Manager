@@ -30,7 +30,7 @@ final class MoraleService
     public function recoverDaily(int $saveId, string $date): void
     {
         $this->database->execute(
-            'UPDATE players SET fatigue = GREATEST(0, fatigue - 7),
+            'UPDATE players SET fatigue = GREATEST(0, CAST(fatigue AS SIGNED) - 7),
              morale = GREATEST(20, LEAST(100, morale + IF(morale < 60, 1, 0))),
              injury_type = IF(injury_until IS NOT NULL AND injury_until <= :injury_date, NULL, injury_type),
              injury_until = IF(injury_until IS NOT NULL AND injury_until <= :clear_date, NULL, injury_until)

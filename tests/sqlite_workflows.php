@@ -118,8 +118,11 @@ try {
 
     /** @var GameLoopService $gameLoop */
     $gameLoop = $app->make(GameLoopService::class);
+    $pdo->exec('UPDATE players SET fatigue=CASE id WHEN 1 THEN 0 WHEN 2 THEN 5 WHEN 3 THEN 7 WHEN 4 THEN 8 ELSE fatigue END WHERE id IN (1,2,3,4)');
     $oneDay = $gameLoop->advance($context, 1);
     $assert($oneDay['days'] === 1 && $context->save()['current_date'] === '2026-07-02', 'Le bouton +1 jour ne produit pas la date attendue.');
+    $fatigueValues = $pdo->query('SELECT fatigue FROM players WHERE id IN (1,2,3,4) ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
+    $assert([0, 0, 0, 1] === array_map('intval', $fatigueValues), 'La récupération doit borner la fatigue à zéro sans dépassement négatif.');
 
     $sevenDays = $gameLoop->advance($context, 7);
     $assert($sevenDays['days'] === 7 && $context->save()['current_date'] === '2026-07-09', 'Continuer ne produit pas les sept jours attendus.');
