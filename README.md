@@ -66,6 +66,8 @@ php bin/migrate status
 
 Les migrations créent le schéma, les clés étrangères, les index et l’état persistant des matchs. La table `schema_migrations` empêche leur réexécution. Les DDL MySQL/MariaDB validant implicitement les transactions, une migration interrompue doit être inspectée avant une nouvelle tentative.
 
+Après une mise à jour, exécuter `php bin/migrate` avant de reprendre les matchs. Sur une base antérieure à `006_add_player_experience`, la finalisation ne sera pas bloquée par l’absence de `players.experience`, mais les gains resteront uniquement dans l’état JSON du match et ne seront pas ajoutés aux joueurs. **La migration est indispensable pour activer la persistance des matchs suivants ; elle ne rejoue pas les anciennes finalisations.**
+
 ### 3. Démarrer l’application
 
 ```bash

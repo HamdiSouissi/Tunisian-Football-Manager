@@ -9,6 +9,7 @@ use App\Contracts\MatchEngineInterface;
 use App\Core\Config;
 use App\Database\Database;
 use App\Models\PlayerRepository;
+use PDOException;
 use RuntimeException;
 
 final class MatchService
@@ -259,16 +260,7 @@ final class MatchService
         $this->league->recordResult($saveId, $completed);
         $this->morale->afterMatch($saveId, $fixture, $state);
 
-        foreach (['home', 'away'] as $side) {
-            $clubId = (int)$fixture[$side . '_club_id'];
-            foreach ($state['experience_gained'][$side] ?? [] as $playerId => $gain) {
-                if ((int)$gain <= 0) continue;
-                $this->database->execute(
-                    'UPDATE players SET experience=LEAST(100,experience+:experience) WHERE save_id=:save_id AND club_id=:club_id AND id=:player_id',
-                    ['experience'=>(int)$gain, 'save_id'=>$saveId, 'club_id'=>$clubId, 'player_id'=>(int)$playerId]
-                );
-            }
-        }
+        $this->applyExperience($saveId, $fixture, $state);
 
         $injuries = $this->database->select(
             'SELECT e.player_id, e.data, f.scheduled_at FROM match_events e JOIN fixtures f ON f.id=e.fixture_id
@@ -296,6 +288,32 @@ final class MatchService
             );
         }
         $this->events->dispatch('match.finished', ['save_id' => $saveId, 'fixture_id' => (int) $fixture['id'], 'fixture' => $completed, 'state' => $state]);
+    }
+
+    private function applyExperience(int $saveId, array $fixture, array $state): void
+    {
+        try {
+            foreach (['home', 'away'] as $side) {
+                $clubId = (int)$fixture[$side . '_club_id'];
+                foreach ($state['experience_gained'][$side] ?? [] as $playerId => $gain) {
+                    if ((int)$gain <= 0) continue;
+                    $this->database->execute(
+                        'UPDATE players SET experience=LEAST(100,experience+:experience) WHERE save_id=:save_id AND club_id=:club_id AND id=:player_id',
+                        ['experience'=>(int)$gain, 'save_id'=>$saveId, 'club_id'=>$clubId, 'player_id'=>(int)$playerId]
+                    );
+                }
+            }
+        } catch (PDOException $exception) {
+            // La migration 006 n'a pas encore été exécutée : le match reste finalisable et les gains demeurent dans son état JSON.
+            $code = (string)$exception->getCode();
+            $message = strtolower($exception->getMessage());
+            $missingMysqlColumn = $code === '42S22' && str_contains($message, 'unknown column') && str_contains($message, 'experience');
+            $missingSqliteColumn = $code === 'HY000' && str_contains($message, 'no such column: experience');
+            if ($missingMysqlColumn || $missingSqliteColumn) {
+                return;
+            }
+            throw $exception;
+        }
     }
 
     private function insertEvents(int $saveId, array $fixture, array $events): void

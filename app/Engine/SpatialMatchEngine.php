@@ -395,7 +395,10 @@ final class SpatialMatchEngine
         $movement = $this->physics->moveBall($state['spatial']);
         $state['spatial'] = $movement['spatial'];
         $state['spatial']['restart']['remaining']--;
-        if ((int)$state['spatial']['restart']['remaining'] <= 0) unset($state['spatial']['restart']);
+        // Une reprise longue (notamment du but au rond central) reste active jusqu'à la réception du ballon.
+        if ((int)$state['spatial']['restart']['remaining'] <= 0 && !$state['spatial']['ball']['in_transit']) {
+            unset($state['spatial']['restart']);
+        }
         return $state;
     }
 

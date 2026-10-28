@@ -10,7 +10,7 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 
 | Vérification | Résultat |
 |---|---|
-| Analyse syntaxique PHP avec `TOKEN_PARSE` | **138 fichiers, 0 erreur** |
+| Analyse syntaxique PHP avec `TOKEN_PARSE` | **137 fichiers, 0 erreur** |
 | `tests/smoke.php` | **Smoke tests : OK** |
 | `tests/engine.php` | **Tests moteur, calendrier et IA : OK** |
 | `tests/sqlite_workflows.php` | **Workflows PDO : jour de match, rapport, calendrier, expérience et persistance OK** |
@@ -60,6 +60,7 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 - redirection du contrôleur vers le rapport après simulation, match terminé après le temps additionnel, score cohérent avec les événements, classement, billetterie et message de résultat ;
 - rendu du rapport Canvas et du calendrier mensuel, notes/homme du match, minutes individuelles et expérience persistée correspondant exactement aux gains du moteur ;
 - reprise d’un ancien direct sans état spatial, météo ni nouvelles statistiques, puis deux appels `/step` consécutifs avec persistence JSON et dix frames par minute ;
+- simulation complète sur une base dont la colonne `players.experience` a été supprimée : finalisation et gains dans le rapport conservés, sans fausse assertion de persistance SQL ;
 - absence de duplication des événements et de double comptabilisation au classement lors d’un second appel, puis reprise de l’avancement le lendemain.
 
 ### Couverture du moteur et du calendrier
@@ -72,6 +73,7 @@ Le script utilise une base SQLite en mémoire, de vraies `PDOStatement` avec `AT
 - payload du direct exposant la formation, le onze et le banc à jour pour une synchronisation sans rechargement ;
 - déroulement jusqu’à 90 minutes plus le temps additionnel, avec mi-temps après celui de la première période ;
 - possession cumulée sur toutes les minutes jouées, dix frames par minute, continuité du ballon et joueurs non expulsés ;
+- durée minimale d’une passe de 40 m et vitesse maximale de 2,4 m par tick, reprise maintenue jusqu’à réception au rond central, appels premier/second poteau différenciés et cibles tactiques déterministes ;
 - touches, hors-jeu avec deuxième dernier défenseur, penalty spatial, corners, duels et reprises ;
 - navigation mensuelle sur 42 cellules et hebdomadaire du lundi au dimanche ;
 - égalité entre les buts du score et les événements de but ;

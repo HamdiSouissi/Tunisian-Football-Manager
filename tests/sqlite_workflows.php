@@ -272,6 +272,15 @@ try {
     $assert($foreignRejected, 'Le bouton ne doit pas permettre de simuler le match d’un autre club.');
     $pdo->exec('DELETE FROM fixtures WHERE id=3');
 
+    // Base antérieure à la migration 006 : l'EXP reste dans le rapport mais son absence ne doit plus bloquer la finalisation.
+    $pdo->exec("INSERT INTO fixtures (id,save_id,season_id,league_id,matchday,scheduled_at,home_club_id,away_club_id) VALUES (2,1,1,1,2,'2026-07-11 18:00:00',1,2)");
+    $pdo->exec('ALTER TABLE players DROP COLUMN experience');
+    $legacyExperienceState = $matchService->simulateForUser($context, 2);
+    $legacyFixture = $pdo->query('SELECT status,home_score,away_score FROM fixtures WHERE id=2')->fetch(PDO::FETCH_ASSOC);
+    $playerColumns = array_map(static fn (array $column): string => (string)$column['name'], $pdo->query('PRAGMA table_info(players)')->fetchAll(PDO::FETCH_ASSOC));
+    $assert($legacyExperienceState['status'] === 'finished' && $legacyFixture['status'] === 'finished', 'Une base sans colonne experience doit pouvoir terminer le match.');
+    $assert(array_sum($legacyExperienceState['experience_gained']['home']) > 0 && !in_array('experience', $playerColumns, true), 'Les gains calculés doivent rester disponibles sans prétendre les avoir persistés dans la colonne absente.');
+
     $afterMatch = $gameLoop->advance($context, 1);
     $assert($afterMatch['days'] === 1 && $context->save()['current_date'] === '2026-07-12', 'Le calendrier doit pouvoir reprendre après la simulation.');
 

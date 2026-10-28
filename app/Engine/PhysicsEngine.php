@@ -43,11 +43,22 @@ final class PhysicsEngine
     public function kick(array $spatial, int $targetOwnerId, string $targetSide, array $target, string $kind, int $steps, float $height = 0.0): array
     {
         $ball = $spatial['ball'];
-        $steps = max(1, $steps);
         $ball['start_x'] = (float)$ball['x'];
         $ball['start_y'] = (float)$ball['y'];
         $ball['target_x'] = (float)$target['x'];
         $ball['target_y'] = (float)$target['y'];
+        $distance = hypot($ball['target_x'] - $ball['start_x'], $ball['target_y'] - $ball['start_y']);
+        // Vitesse maximale en mètres par tick de 100 ms : la balle ne traverse plus le terrain instantanément.
+        $maximumSpeed = match ($kind) {
+            'shot' => 5.5,
+            'penalty' => 4.5,
+            'long_pass' => 3.0,
+            'cross' => 2.2,
+            'restart' => 3.5,
+            'tackle' => 2.5,
+            default => 2.4,
+        };
+        $steps = max(1, $steps, (int)ceil($distance / $maximumSpeed));
         $ball['target_id'] = $targetOwnerId;
         $ball['target_side'] = $targetSide;
         $ball['in_transit'] = true;

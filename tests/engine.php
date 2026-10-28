@@ -204,6 +204,48 @@ try {
     $assert($transfers->isWindowOpen('2027-01-15'), 'La fenêtre d’hiver doit être ouverte.');
     $assert(!$transfers->isWindowOpen('2026-10-15'), 'Le marché doit être fermé hors fenêtre.');
 
+    $physics = new App\Engine\PhysicsEngine();
+    $ballPhysics = [
+        'players' => ['home'=>[], 'away'=>[]],
+        'ball' => ['x'=>10.0,'y'=>34.0,'z'=>0.0,'owner_id'=>null,'side'=>'home','in_transit'=>false,'target_id'=>null,'steps_remaining'=>0,'steps_total'=>0],
+    ];
+    $ballPhysics = $physics->kick($ballPhysics, 1000, 'home', ['x'=>50.0,'y'=>34.0,'z'=>0.0], 'pass', 1, 0.0);
+    $assert($ballPhysics['ball']['steps_total'] >= 17, 'Une passe de quarante mètres doit avoir une durée physique minimale.');
+    $ballPhysics = $physics->moveBall($ballPhysics)['spatial'];
+    $assert(hypot($ballPhysics['ball']['x'] - 10, $ballPhysics['ball']['y'] - 34) <= 2.401, 'Le ballon ne doit pas dépasser la vitesse maximale d’une passe.');
+
+    $restartState = $baseline;
+    $restartState['spatial']['ball'] = [...$restartState['spatial']['ball'], 'x'=>105.0, 'y'=>34.0, 'z'=>0.0, 'owner_id'=>(int)$awayTactic['lineup'][0]['player_id'], 'side'=>'away', 'in_transit'=>false];
+    $restartState['spatial']['restart'] = ['remaining'=>2, 'side'=>'home', 'reason'=>'kickoff', 'initialized'=>false];
+    $restartTick = (new ReflectionClass($spatial))->getMethod('restartTick');
+    $restartTick->setAccessible(true);
+    $restartState = $restartTick->invoke($spatial, $restartState);
+    $restartState = $restartTick->invoke($spatial, $restartState);
+    $assert(isset($restartState['spatial']['restart']) && $restartState['spatial']['ball']['in_transit'], 'La reprise doit rester active tant que le ballon rejoint le rond central.');
+    $guard = 0;
+    while (isset($restartState['spatial']['restart']) && $guard++ < 20) {
+        $restartState = $restartTick->invoke($spatial, $restartState);
+    }
+    $assert(!isset($restartState['spatial']['restart']) && !$restartState['spatial']['ball']['in_transit'] && hypot($restartState['spatial']['ball']['x'] - 52.5, $restartState['spatial']['ball']['y'] - 34) < 0.01, 'La reprise doit se terminer sur réception, sans téléporter le ballon.');
+
+    $twoStrikerTactic = $awayTactic;
+    $twoStrikerTactic['formation'] = '4-4-2';
+    $twoStrikerTactic['lineup'] = [];
+    foreach (TacticService::FORMATIONS['4-4-2'] as $slot => $position) {
+        $twoStrikerTactic['lineup'][] = [...$awayTactic['lineup'][$slot], 'slot'=>$slot, 'position'=>$position];
+    }
+    $roleState = $engine->initialize($home, $away, $homeTactic, $twoStrikerTactic);
+    $roleState['spatial']['ball']['x'] = 30.0;
+    $roleState['spatial']['ball']['y'] = 12.0;
+    $roleState['spatial']['ball']['side'] = 'away';
+    $roleState['spatial']['ball']['owner_id'] = (int)$twoStrikerTactic['lineup'][6]['player_id'];
+    $tactical = new App\Engine\TacticalEngine();
+    $roleTargets = $tactical->targets($roleState, 'away');
+    $nearPostId = (int)$twoStrikerTactic['lineup'][9]['player_id'];
+    $farPostId = (int)$twoStrikerTactic['lineup'][10]['player_id'];
+    $assert($roleTargets[$nearPostId]['y'] < 30 && $roleTargets[$farPostId]['y'] > 34, 'Les deux attaquants doivent effectuer des appels différents au premier et au second poteau : ' . json_encode([$roleTargets[$nearPostId], $roleTargets[$farPostId]]));
+    $assert($roleTargets === $tactical->targets($roleState, 'away'), 'À situation identique, les courses tactiques doivent être déterministes.');
+
     echo "Tests moteur, calendrier et IA : OK\n";
 } catch (Throwable $exception) {
     echo 'ÉCHEC : ' . $exception->getMessage() . "\n";
