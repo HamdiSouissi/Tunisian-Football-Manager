@@ -24,7 +24,7 @@ final class LeagueController extends GameController
         $bindings=['save_id'=>$this->context->saveId(),'season_id'=>(int)$this->context->save()['current_season_id'],'league_id'=>$leagueId];
         $where='f.save_id=:save_id AND f.season_id=:season_id AND f.league_id=:league_id';
         if($matchday>0){$where.=' AND f.matchday=:matchday';$bindings['matchday']=$matchday;}
-        $fixtures=$this->database->select('SELECT f.*,h.name AS home_name,h.short_name AS home_short,a.name AS away_name,a.short_name AS away_short FROM fixtures f JOIN clubs h ON h.id=f.home_club_id JOIN clubs a ON a.id=f.away_club_id WHERE '.$where.' ORDER BY f.matchday,f.scheduled_at,f.id',$bindings);
+        $fixtures=$this->database->select('SELECT f.*,h.name AS home_name,h.short_name AS home_short,h.slug AS home_slug,a.name AS away_name,a.short_name AS away_short,a.slug AS away_slug FROM fixtures f JOIN clubs h ON h.id=f.home_club_id JOIN clubs a ON a.id=f.away_club_id WHERE '.$where.' ORDER BY f.matchday,f.scheduled_at,f.id',$bindings);
         return $this->gameView('league::calendar',array_merge($this->leagueData($leagueId),['title'=>'Calendrier & résultats','active'=>'calendar','fixtures'=>$fixtures,'selectedMatchday'=>$matchday,'save'=>$this->context->save()]));
     }
 

@@ -18,7 +18,7 @@ $base = '/saves/' . (int) $save['id'];
 <script src="/assets/js/app.js" defer></script><script src="/assets/js/auth.js" defer></script>
 <script src="/assets/js/player.js" defer></script><script src="/assets/js/tactics.js" defer></script><script src="/assets/js/match.js" defer></script>
 </head><body class="game-body" style="--club-color: <?= e($club['primary_color']) ?>; --club-secondary: <?= e($club['secondary_color']) ?>">
-<aside class="sidebar" id="sidebar"><a class="brand sidebar__brand" href="<?= $base ?>"><span class="brand__mark"><?= e($club['short_name']) ?></span><span><strong><?= e($club['name']) ?></strong><small><?= e($save['manager_name']) ?></small></span></a>
+<aside class="sidebar" id="sidebar"><a class="brand sidebar__brand" href="<?= $base ?>"><span class="brand__mark brand__mark--club"><?= club_logo($club['slug'], 'club-logo', false) ?></span><span><strong><?= e($club['name']) ?></strong><small><?= e($save['manager_name']) ?></small></span></a>
 <nav class="sidebar__nav"><?php foreach ($links as $path => [$key,$icon,$label]): ?><a class="<?= $active === $key ? 'active' : '' ?>" href="<?= $base . ($path ? '/' . $path : '') ?>"><span><?= $icon ?></span><?= e($label) ?><?php if ($key === 'inbox' && $context->unreadMessages()): ?><b class="nav-badge"><?= $context->unreadMessages() ?></b><?php endif; ?></a><?php endforeach; ?></nav>
 <div class="sidebar__footer"><a href="/saves">← Changer de partie</a><small><?= e($save['name']) ?></small></div></aside>
 <div class="game-shell"><header class="topbar"><button class="icon-button" data-sidebar-toggle aria-label="Menu">☰</button><div class="topbar__date"><small>Date de jeu</small><strong><?= format_date($save['current_date'], 'd M Y') ?></strong></div>

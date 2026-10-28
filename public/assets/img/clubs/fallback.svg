@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Blason de repli">
+  <path d="M64 5 112 23v36c0 31-17 53-48 64C33 112 16 90 16 59V23Z" fill="#152622" stroke="#39d7a4" stroke-width="4"/>
+  <circle cx="64" cy="50" r="22" fill="none" stroke="#91a8a0" stroke-width="3"/>
+  <path d="m64 36 9 7-3 11H58l-3-11Zm-21 10 12-3 3 11-8 8-11-5Zm42 0-11 16-8-8 5-11 11 3ZM54 74l4-9h12l4 9-6 10H60Z" fill="#91a8a0"/>
+  <text x="64" y="104" fill="#edf7f3" font-family="Arial,sans-serif" font-size="22" font-weight="800" text-anchor="middle">TFM</text>
+</svg>

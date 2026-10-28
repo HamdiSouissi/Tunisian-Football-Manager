@@ -202,7 +202,7 @@ final class TacticService
 
     private function currentDate(int $saveId): string
     {
-        $save = $this->database->selectOne('SELECT current_date FROM saves WHERE id=:save_id', ['save_id'=>$saveId]);
+        $save = $this->database->selectOne('SELECT `current_date` FROM saves WHERE id=:save_id', ['save_id'=>$saveId]);
         return (string)($save['current_date'] ?? date('Y-m-d'));
     }
 

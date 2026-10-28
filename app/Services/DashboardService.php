@@ -19,7 +19,7 @@ final class DashboardService
         $clubId = $context->clubId();
         $seasonId = (int) $context->save()['current_season_id'];
         $next = $this->database->selectOne(
-            'SELECT f.*, h.name AS home_name, a.name AS away_name, h.primary_color AS home_color, a.primary_color AS away_color
+            'SELECT f.*, h.name AS home_name, a.name AS away_name, h.slug AS home_slug, a.slug AS away_slug, h.primary_color AS home_color, a.primary_color AS away_color
              FROM fixtures f JOIN clubs h ON h.id = f.home_club_id JOIN clubs a ON a.id = f.away_club_id
              WHERE f.save_id = :save_id AND f.status IN (\'scheduled\',\'live\',\'halftime\')
              AND (f.home_club_id = :home_club OR f.away_club_id = :away_club)

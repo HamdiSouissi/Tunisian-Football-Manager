@@ -50,7 +50,7 @@ final class WorldSeeder
         return $this->database->transaction(function () use ($userId, $name, $managerName, $difficulty, $selected, $seasonStart, $seasonEnd, $year): int {
             // La difficulté est explicitement injectée, sans dépendance aux superglobales HTTP.
             $saveId = (int) $this->database->insert(
-                'INSERT INTO saves (user_id, name, manager_name, difficulty, current_date) VALUES (:user_id, :name, :manager_name, :difficulty, :current_date)',
+                'INSERT INTO saves (user_id, name, manager_name, difficulty, `current_date`) VALUES (:user_id, :name, :manager_name, :difficulty, :current_date)',
                 ['user_id' => $userId, 'name' => $name, 'manager_name' => $managerName, 'difficulty' => $difficulty, 'current_date' => $seasonStart->format('Y-m-d')]
             );
             $seasonId = (int) $this->database->insert(

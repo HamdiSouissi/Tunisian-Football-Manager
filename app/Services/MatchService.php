@@ -29,8 +29,8 @@ final class MatchService
     public function fixture(int $saveId, int $fixtureId): array
     {
         $fixture = $this->database->selectOne(
-            'SELECT f.*, h.name AS home_name, h.short_name AS home_short, h.primary_color AS home_color,
-             a.name AS away_name, a.short_name AS away_short, a.primary_color AS away_color
+            'SELECT f.*, h.name AS home_name, h.short_name AS home_short, h.slug AS home_slug, h.primary_color AS home_color,
+             a.name AS away_name, a.short_name AS away_short, a.slug AS away_slug, a.primary_color AS away_color
              FROM fixtures f JOIN clubs h ON h.id=f.home_club_id JOIN clubs a ON a.id=f.away_club_id
              WHERE f.save_id=:save_id AND f.id=:fixture_id',
             ['save_id' => $saveId, 'fixture_id' => $fixtureId]

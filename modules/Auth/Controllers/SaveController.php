@@ -35,7 +35,7 @@ final class SaveController extends Controller
     public function index(Request $request): Response
     {
         $saves = $this->database->select(
-            'SELECT s.*, c.name AS club_name, c.primary_color, l.short_name AS division_name
+            'SELECT s.*, c.name AS club_name, c.slug AS club_slug, c.primary_color, l.short_name AS division_name
              FROM saves s LEFT JOIN clubs c ON c.id = s.club_id LEFT JOIN leagues l ON l.id = c.league_id
              WHERE s.user_id = :user_id ORDER BY s.updated_at DESC',
             ['user_id' => $this->auth->userId()]

@@ -10,9 +10,10 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 
 | Vérification | Résultat |
 |---|---|
-| Analyse syntaxique PHP avec `TOKEN_PARSE` | **126 fichiers, 0 erreur** |
+| Analyse syntaxique PHP avec `TOKEN_PARSE` | **127 fichiers, 0 erreur** |
 | `tests/smoke.php` | **Smoke tests : OK** |
 | `tests/engine.php` | **12 exécutions consécutives : Tests moteur, calendrier et IA : OK** |
+| Assets des clubs | **32/32 slugs couverts, 32 PNG valides en 256 × 256** |
 | `node --check` sur les cinq fichiers JS | **OK** |
 | Équilibre des accolades CSS | **OK** |
 | `git diff --check` | **OK** |
@@ -24,11 +25,13 @@ Environnement de livraison : PHP 8.1 WebAssembly temporaire pour l’exécution 
 - bindings `MatchEngineInterface` et `AIManagerInterface` ;
 - dispatcher, motifs génériques et priorités ;
 - découpage des **27 instructions** de migration ;
+- régression MySQL : `` `current_date` `` reste échappé dans les quatre requêtes de création/lecture/avancement/rollover ;
 - CSRF par en-tête et rejet d’un jeton invalide ;
 - route `/health`, contraintes de paramètres et 404 ;
 - pages invitées `/login` et `/register`, redirections de `/` et `/saves` ;
 - blocage CSRF d’un POST de connexion avant toute connexion PDO ;
-- catalogue de 2 ligues, 32 clubs et 12 joueurs libres.
+- catalogue de 2 ligues, 32 clubs et 12 joueurs libres ;
+- correspondance entre chaque slug et son blason local, URL des images et fallback pour slug invalide/asset absent.
 
 ### Couverture du moteur et du calendrier
 
@@ -68,7 +71,7 @@ Le runtime WebAssembly sert uniquement aux tests sans base ; il n’est pas un s
 
 ### 2. Seed et pages principales
 
-1. Créer une carrière en Ligue 1 puis une autre en Ligue 2.
+1. Créer une carrière en Ligue 1 puis une autre en Ligue 2. Rejouer explicitement le parcours avec **Olympique de Béja** et vérifier que le seed ne produit plus l’erreur PDO 1064 sur `current_date`.
 2. Pour chaque `save_id`, contrôler : 2 ligues, 32 clubs, 716 joueurs, 480 fixtures, 32 tactiques et 32 lignes de standings.
 3. Ouvrir dashboard, effectif, fiche joueur, tactique, calendrier, classement, entraînement, transferts, finances, club, staff et messagerie.
 4. Vérifier l’absence de warning PHP, de requête sans résultat inattendu et de contenu non échappé.
@@ -115,6 +118,6 @@ Sur une sauvegarde de test, avancer jusqu’au 1er juin puis vérifier :
 
 ### 7. Navigateur
 
-Valider Chromium et, si possible, Firefox : desktop 1440 px, tablette 1024/768 px et mobile 390 px. Tester menu latéral, onglets mercato, tri/recherche, radar, glisser-déposer et alternative au clic, lecture automatique, formulaires et absence d’erreur console.
+Valider Chromium et, si possible, Firefox : desktop 1440 px, tablette 1024/768 px et mobile 390 px. Vérifier que le document global ne défile jamais, que la coquille occupe tout le viewport et que le contenu principal, le sélecteur des 32 clubs, la sidebar et les tableaux restent accessibles par leurs défilements internes. Tester ensuite menu latéral, affichage des blasons, onglets mercato, tri/recherche, radar, glisser-déposer et alternative au clic, lecture automatique, formulaires et absence d’erreur console.
 
 Consigner dans ce document la version de PHP, MySQL/MariaDB et du navigateur ainsi que les résultats obtenus après chaque campagne.

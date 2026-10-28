@@ -37,7 +37,7 @@ final class SeasonService
             $newStart=new DateTimeImmutable((string)$season['starts_on']);$newStart=$newStart->modify('+1 year');
             $this->expireContractsAndRetire($saveId,$newStart);
             $newSeasonId=(int)$this->database->insert('INSERT INTO seasons (save_id,name,starts_on,ends_on,status) VALUES (:save_id,:name,:starts_on,:ends_on,\'active\')',['save_id'=>$saveId,'name'=>$newStart->format('Y').'-'.$newStart->modify('+1 year')->format('Y'),'starts_on'=>$newStart->format('Y-m-d'),'ends_on'=>$newStart->modify('+10 months')->format('Y-m-t')]);
-            $this->database->execute('UPDATE saves SET current_season_id=:season_id,current_date=:date WHERE id=:save_id',['season_id'=>$newSeasonId,'date'=>$newStart->format('Y-m-d'),'save_id'=>$saveId]);
+            $this->database->execute('UPDATE saves SET current_season_id=:season_id,`current_date`=:date WHERE id=:save_id',['season_id'=>$newSeasonId,'date'=>$newStart->format('Y-m-d'),'save_id'=>$saveId]);
             $this->seedYouth($saveId,$newStart);
             $this->resetClubsAndCompetitions($context,$newSeasonId,$newStart);
             $this->messages->send($saveId,$context->userId(),$context->clubId(),'Nouvelle saison '.$newStart->format('Y'),'Le centre de formation a promu de nouveaux jeunes. Les promotions, relégations et contrats ont été actualisés.','board','/saves/'.$saveId);

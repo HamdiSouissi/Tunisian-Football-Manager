@@ -85,6 +85,18 @@ try {
     }
     $assertSame(27, $statementCount, 'Nombre inattendu d’instructions de migration.');
 
+    // CURRENT_DATE est un mot-clé MySQL : l'identifiant doit rester échappé dans chaque requête.
+    $quotedDateSql = [
+        'app/Services/WorldSeeder.php' => 'difficulty, `current_date`)',
+        'app/Services/TacticService.php' => 'SELECT `current_date` FROM saves',
+        'app/Services/SeasonService.php' => 'current_season_id=:season_id,`current_date`=:date',
+        'app/Services/GameLoopService.php' => 'UPDATE saves SET `current_date`=:date',
+    ];
+    foreach ($quotedDateSql as $file => $expectedSql) {
+        $source = (string) file_get_contents(base_path($file));
+        $assertSame(true, str_contains($source, $expectedSql), 'Identifiant current_date non échappé dans ' . $file . '.');
+    }
+
     // Le middleware accepte un jeton d'en-tête et rejette une modification invalide.
     $sessionPath = sys_get_temp_dir() . '/tfm-smoke-' . getmypid();
     $session = new Session([
@@ -134,6 +146,13 @@ try {
     $assertSame(16, count($leagues[0]['clubs']), 'La Ligue 1 doit contenir 16 clubs.');
     $assertSame(16, count($leagues[1]['clubs']), 'La Ligue 2 doit contenir 16 clubs.');
     $assertSame(32, count($catalog->clubs()), 'Le monde doit contenir 32 clubs.');
+    foreach ($catalog->clubs() as $club) {
+        $logo = 'public/assets/img/clubs/' . $club['slug'] . '.png';
+        $assertSame(true, is_file(base_path($logo)), 'Blason local manquant pour ' . $club['slug'] . '.');
+        $assertSame('/assets/img/clubs/' . $club['slug'] . '.png', club_logo_url($club['slug']), 'URL de blason invalide.');
+    }
+    $assertSame('/assets/img/clubs/fallback.svg', club_logo_url('../club-inconnu'), 'Le fallback doit rejeter les slugs invalides.');
+    $assertSame('/assets/img/clubs/fallback.svg', club_logo_url('club-inconnu'), 'Le fallback doit couvrir un asset absent.');
     $freeAgents = json_decode((string)file_get_contents(base_path('database/data/players.json')), true, 512, JSON_THROW_ON_ERROR);
     $assertSame(12, count($freeAgents), 'Le seed doit contenir douze joueurs libres.');
 

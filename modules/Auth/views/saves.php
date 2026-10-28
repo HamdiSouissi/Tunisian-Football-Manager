@@ -4,7 +4,7 @@
 <?php foreach ($saves as $save): ?>
     <article class="save-card" style="--club-color: <?= e($save['primary_color'] ?? '#14b8a6') ?>">
         <div class="save-card__top"><span class="badge"><?= e($save['division_name'] ?? 'Initialisation') ?></span><span class="badge badge--muted"><?= e(ucfirst((string) $save['difficulty'])) ?></span></div>
-        <h2><?= e($save['name']) ?></h2><p class="save-card__club"><?= e($save['club_name'] ?? 'Monde incomplet') ?></p>
+        <h2><?= e($save['name']) ?></h2><p class="save-card__club"><?= club_logo($save['club_slug'] ?? null) ?><span><?= e($save['club_name'] ?? 'Monde incomplet') ?></span></p>
         <dl class="save-card__facts"><div><dt>Entraîneur</dt><dd><?= e($save['manager_name']) ?></dd></div><div><dt>Date de jeu</dt><dd><?= e(date('d/m/Y', strtotime((string) $save['current_date']))) ?></dd></div><div><dt>Statut</dt><dd><?= e($save['status']) ?></dd></div></dl>
         <div class="save-card__actions"><a class="btn btn--primary" href="/saves/<?= (int) $save['id'] ?>">Reprendre</a>
             <?php if ($save['status'] === 'completed'): ?><span class="badge badge--muted">Carrière terminée</span><?php else: ?><form method="post" action="/saves/<?= (int) $save['id'] ?>/archive"><input type="hidden" name="_token" value="<?= e(csrf_token()) ?>"><button class="btn btn--ghost btn--sm"><?= $save['status'] === 'archived' ? 'Restaurer' : 'Archiver' ?></button></form><?php endif; ?>

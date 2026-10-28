@@ -57,6 +57,33 @@ if (!function_exists('__')) {
     }
 }
 
+if (!function_exists('club_logo_url')) {
+    /** Retourne un blason local validé, sans jamais dépendre d'un domaine tiers. */
+    function club_logo_url(?string $slug): string
+    {
+        static $cache = [];
+        $slug = (string) $slug;
+        if (isset($cache[$slug])) {
+            return $cache[$slug];
+        }
+        if (preg_match('/^[a-z0-9-]+$/D', $slug) !== 1) {
+            return $cache[$slug] = '/assets/img/clubs/fallback.svg';
+        }
+        $relative = 'assets/img/clubs/' . $slug . '.png';
+        return $cache[$slug] = is_file(base_path('public/' . $relative))
+            ? '/' . $relative
+            : '/assets/img/clubs/fallback.svg';
+    }
+}
+
+if (!function_exists('club_logo')) {
+    /** Les noms des clubs restent dans le texte adjacent : l'image est décorative. */
+    function club_logo(?string $slug, string $class = 'club-logo', bool $lazy = true): string
+    {
+        return '<img class="' . e($class) . '" src="' . e(club_logo_url($slug)) . '" alt="" width="256" height="256" loading="' . ($lazy ? 'lazy' : 'eager') . '" decoding="async">';
+    }
+}
+
 if (!function_exists('format_money')) {
     function format_money(mixed $value): string
     {

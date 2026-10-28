@@ -10,7 +10,7 @@
         <label class="field field--compact"><span>Division</span><select name="division" id="save-division"><option value="1">Ligue Professionnelle 1</option><option value="2">Ligue Professionnelle 2</option></select></label>
         <div class="club-picker">
         <?php foreach ($leagues as $league): foreach ($league['clubs'] as $club): ?>
-            <label class="club-option" data-division="<?= (int) $league['level'] ?>" style="--club-color: <?= e($club['primary']) ?>"><input type="radio" name="club_slug" value="<?= e($club['slug']) ?>" required><span class="club-option__crest"><?= e($club['short_name']) ?></span><span><strong><?= e($club['name']) ?></strong><small><?= e($club['city']) ?> · <?= e($club['stadium']) ?></small></span><span class="rating"><?= (int) $club['reputation'] ?></span></label>
+            <label class="club-option" data-division="<?= (int) $league['level'] ?>" style="--club-color: <?= e($club['primary']) ?>"><input type="radio" name="club_slug" value="<?= e($club['slug']) ?>" required><span class="club-option__crest"><?= club_logo($club['slug'], 'club-logo', false) ?></span><span><strong><?= e($club['name']) ?></strong><small><?= e($club['city']) ?> · <?= e($club['stadium']) ?></small></span><span class="rating"><?= (int) $club['reputation'] ?></span></label>
         <?php endforeach; endforeach; ?>
         </div>
     </div></section>

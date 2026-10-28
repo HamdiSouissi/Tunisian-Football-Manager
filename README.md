@@ -8,6 +8,8 @@ Jeu web de gestion d’un club de football tunisien, écrit en **PHP 8.1+ natif*
 
 - **Carrières** : inscription, connexion, déconnexion, plusieurs sauvegardes, archivage, quatre difficultés et isolation stricte par `save_id`.
 - **Monde tunisien** : deux divisions de 16 clubs, 22 joueurs par club, 12 joueurs libres, contrats, staff, tactiques, objectifs et 480 rencontres aller-retour.
+- **Identité visuelle locale** : 32 blasons PNG en 256 × 256, dont 31 importés depuis leurs sources Internet et un monogramme de repli documenté ; aucun hotlink pendant le jeu. Voir [les sources des assets](public/assets/img/clubs/SOURCES.md).
+- **Interface plein écran** : coquille verrouillée à `100vw` / `100dvh`, sans défilement du document ; le contenu principal, la navigation et les listes denses possèdent leurs propres zones de défilement.
 - **Centre de commandement** : prochain match, classement, objectif et confiance de la direction, finances, joueurs en vue, résultats et messagerie.
 - **Effectif** : tableau dense triable/filtrable, forme, moral, fatigue, blessures, valeur, fiche détaillée et radar d’attributs sans bibliothèque externe.
 - **Tactique** : six formations, onze titulaires, sept remplaçants, glisser-déposer et sélection au clic, mentalité, style, pressing, ligne, tempo, largeur, rôles et consignes individuelles interprétés par le moteur.

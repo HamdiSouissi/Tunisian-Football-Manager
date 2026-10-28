@@ -57,7 +57,7 @@ final class LeagueService
     public function table(int $saveId, int $seasonId, int $leagueId): array
     {
         return $this->database->select(
-            'SELECT st.*, c.name AS club_name, c.short_name, c.primary_color FROM standings st JOIN clubs c ON c.id = st.club_id
+            'SELECT st.*, c.name AS club_name, c.short_name, c.slug, c.primary_color FROM standings st JOIN clubs c ON c.id = st.club_id
              WHERE st.save_id = :save_id AND st.season_id = :season_id AND st.league_id = :league_id ORDER BY st.position, st.points DESC',
             ['save_id' => $saveId, 'season_id' => $seasonId, 'league_id' => $leagueId]
         );

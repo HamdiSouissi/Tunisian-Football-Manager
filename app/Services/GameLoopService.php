@@ -36,7 +36,7 @@ final class GameLoopService
             $date=(new DateTimeImmutable((string)$context->save()['current_date']))->addDay()->format('Y-m-d');
             $this->database->transaction(function()use($context,$date,&$totals):void{
                 $saveId=$context->saveId();
-                $this->database->execute('UPDATE saves SET current_date=:date WHERE id=:save_id AND status=\'active\'',['date'=>$date,'save_id'=>$saveId]);
+                $this->database->execute('UPDATE saves SET `current_date`=:date WHERE id=:save_id AND status=\'active\'',['date'=>$date,'save_id'=>$saveId]);
                 $context->refresh();
                 $this->morale->recoverDaily($saveId,$date);
                 $fixtures=$this->database->select('SELECT id FROM fixtures WHERE save_id=:save_id AND season_id=:season_id AND DATE(scheduled_at)=:date AND status=\'scheduled\' ORDER BY id',['save_id'=>$saveId,'season_id'=>(int)$context->save()['current_season_id'],'date'=>$date]);
